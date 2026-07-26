@@ -121,7 +121,7 @@ a { color: var(--gold-deep); }
 /* ── Grid + ON THIS PAGE ──────────────────────────────────── */
 .grid { display: grid; grid-template-columns: 232px 1fr; gap: 34px; align-items: start; }
 @media (max-width: 880px) { .grid { grid-template-columns: 1fr; } }
-.toc { position: sticky; top: 18px; }
+.toc { position: sticky; top: 18px; max-height: calc(100vh - 36px); overflow-y: auto; padding-right: 6px; }
 .toc-label {
   text-transform: uppercase; letter-spacing: 0.14em; font-size: 11.5px; font-weight: 700;
   color: var(--ink-mute); margin: 0 0 12px;
