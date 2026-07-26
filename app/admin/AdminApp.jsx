@@ -64,7 +64,7 @@ export default function AdminApp({ editorEmail, dev, signOutAction }) {
   }
 
   const superUser = data.editor?.role === 'super';
-  const activeTab = superUser ? tab : 'locations';
+  const activeTab = superUser ? tab : (tab === 'signatures' ? 'signatures' : 'locations');
 
   return (
     <>
@@ -89,13 +89,12 @@ export default function AdminApp({ editorEmail, dev, signOutAction }) {
       </div>
 
       <div className="admin-wrap">
-        {superUser && (
-          <div className="tabs">
-            <button className={`tab ${activeTab === 'locations' ? 'active' : ''}`} onClick={() => setTab('locations')}>Locations</button>
-            <button className={`tab ${activeTab === 'sections' ? 'active' : ''}`} onClick={() => setTab('sections')}>Default Handbook</button>
-            <button className={`tab ${activeTab === 'editors' ? 'active' : ''}`} onClick={() => setTab('editors')}>Editors</button>
-          </div>
-        )}
+        <div className="tabs">
+          <button className={`tab ${activeTab === 'locations' ? 'active' : ''}`} onClick={() => setTab('locations')}>Locations</button>
+          {superUser && <button className={`tab ${activeTab === 'sections' ? 'active' : ''}`} onClick={() => setTab('sections')}>Default Handbook</button>}
+          <button className={`tab ${activeTab === 'signatures' ? 'active' : ''}`} onClick={() => setTab('signatures')}>Signed forms</button>
+          {superUser && <button className={`tab ${activeTab === 'editors' ? 'active' : ''}`} onClick={() => setTab('editors')}>Editors</button>}
+        </div>
         {!superUser && (
           <p className="hint" style={{ marginBottom: 16 }}>
             You&apos;re a campus editor. Choose which sections appear for your campus and edit their wording —
@@ -105,6 +104,7 @@ export default function AdminApp({ editorEmail, dev, signOutAction }) {
 
         {activeTab === 'locations' && <LocationsTab data={data} reload={reload} flash={flash} superUser={superUser} />}
         {activeTab === 'sections' && superUser && <SectionsTab data={data} reload={reload} flash={flash} />}
+        {activeTab === 'signatures' && <SignaturesTab />}
         {activeTab === 'editors' && superUser && <EditorsTab data={data} reload={reload} flash={flash} editorEmail={editorEmail} />}
       </div>
 
@@ -757,6 +757,52 @@ function EditorsTab({ data, reload, flash, editorEmail }) {
         <button className="btn" disabled={busy} onClick={add} style={{ marginTop: 4 }}>Add editor</button>
       </div>
       {err && <p style={{ color: 'var(--danger)', fontSize: 14 }}>{err}</p>}
+    </div>
+  );
+}
+
+/* ─────────────────────────── Signed forms ─────────────────────────── */
+function SignaturesTab() {
+  const [rows, setRows] = useState(null);
+  const [err, setErr] = useState(null);
+
+  useEffect(() => {
+    let live = true;
+    fetch('/api/admin/signatures')
+      .then((r) => r.json())
+      .then((d) => { if (live) { if (d.error) setErr(d.error); else setRows(d.signatures || []); } })
+      .catch((e) => live && setErr(e.message));
+    return () => { live = false; };
+  }, []);
+
+  function fmt(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    return isNaN(d) ? iso : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  return (
+    <div className="card">
+      <h3>Signed forms</h3>
+      <p className="hint">Forms families have signed and submitted through the handbook. Newest first.</p>
+      {err && <p style={{ color: 'var(--danger)', fontSize: 14 }}>{err}</p>}
+      {!rows && !err && <p className="muted">Loading…</p>}
+      {rows && rows.length === 0 && <p className="muted" style={{ fontSize: 14 }}>No signed forms yet.</p>}
+      {rows && rows.map((r) => (
+        <div className="list-row" key={r.id} style={{ alignItems: 'flex-start' }}>
+          <span className="grow">
+            <strong>{r.section_title || r.section_key}</strong>{' '}
+            <span className="muted mono" style={{ fontSize: 12 }}>· {r.location_code}</span>
+            <div style={{ fontSize: 13, marginTop: 2 }}>
+              {r.parent_name}{r.student_name ? ` — student: ${r.student_name}` : ''}
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--ink-soft)' }}>
+              Signed: <span style={{ fontFamily: "'Snell Roundhand','Segoe Script',cursive", fontSize: 16, color: 'var(--navy)' }}>{r.signature}</span>
+            </div>
+          </span>
+          <span className="muted" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{fmt(r.signed_at)}</span>
+        </div>
+      ))}
     </div>
   );
 }

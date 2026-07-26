@@ -47,11 +47,30 @@ create table if not exists editors (
 alter table editors add column if not exists role      text not null default 'location';
 alter table editors add column if not exists locations jsonb not null default '[]'::jsonb;
 
+-- Add per-location extra sections if the table predates them.
+alter table locations add column if not exists extra_sections jsonb not null default '[]'::jsonb;
+
+-- Forms families sign & submit through the handbook, for campus-team review.
+create table if not exists signatures (
+  id            uuid primary key default gen_random_uuid(),
+  location_code text not null,
+  section_key   text not null,
+  section_title text,
+  parent_name   text,
+  student_name  text,
+  signature     text,
+  agreed        boolean not null default true,
+  signed_at     timestamptz not null default now(),
+  user_agent    text
+);
+create index if not exists signatures_code_idx on signatures (location_code, signed_at desc);
+
 create index if not exists locations_active_code_idx on locations (code) where is_active;
 
 -- Row Level Security: the app talks to Supabase with the service-role key
 -- (server-side only), which bypasses RLS. Enabling RLS with no policies means
 -- the anon/public key cannot read or write these tables directly.
-alter table sections  enable row level security;
-alter table locations enable row level security;
-alter table editors   enable row level security;
+alter table sections   enable row level security;
+alter table locations  enable row level security;
+alter table editors    enable row level security;
+alter table signatures enable row level security;
