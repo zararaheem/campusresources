@@ -128,7 +128,7 @@ export default async function Page({ searchParams }) {
                   <section key={s.key} id={s.key} className="section">
                     <h2>{s.title}</h2>
                     <div className="prose" dangerouslySetInnerHTML={{ __html: renderMarkdown(s.body) }} />
-                    {s.signable && <SignForm code={location.code} sectionKey={s.key} sectionTitle={s.title} />}
+                    {s.signable && <SignForm code={location.code} sectionKey={s.key} sectionTitle={s.title} bodyHtml={renderMarkdown(s.body)} />}
                   </section>
                 ))}
               </div>

@@ -5,7 +5,7 @@ import AlphaLogo from './AlphaLogo';
 
 // "Sign this form" button + modal for a signable section. Submissions are
 // stored for the campus team to review in /admin.
-export default function SignForm({ code, sectionKey, sectionTitle }) {
+export default function SignForm({ code, sectionKey, sectionTitle, bodyHtml }) {
   const [open, setOpen] = useState(false);
   const [parentName, setParentName] = useState('');
   const [studentName, setStudentName] = useState('');
@@ -40,7 +40,7 @@ export default function SignForm({ code, sectionKey, sectionTitle }) {
   return (
     <>
       <button type="button" className="sign-btn no-print" onClick={() => setOpen(true)}>
-        ✍ Sign &amp; submit this form
+        ✍ Review &amp; sign this form
       </button>
 
       {open && (
@@ -59,9 +59,14 @@ export default function SignForm({ code, sectionKey, sectionTitle }) {
               </div>
             ) : (
               <form className="sign-body" onSubmit={submit}>
-                <p className="sign-eyebrow">Sign &amp; submit</p>
+                <p className="sign-eyebrow">Review &amp; sign</p>
                 <h3 style={{ margin: '2px 0 4px' }}>{sectionTitle}</h3>
-                <p className="hint">Complete the fields below to sign this form. It will be sent to your campus team.</p>
+
+                {bodyHtml && (
+                  <div className="sign-contract prose" dangerouslySetInnerHTML={{ __html: bodyHtml }} />
+                )}
+
+                <p className="hint">Complete the fields below to sign. It will be sent to your campus team.</p>
 
                 <div className="field"><label>Parent / Guardian name</label>
                   <input value={parentName} onChange={(e) => setParentName(e.target.value)} placeholder="Full name" /></div>
