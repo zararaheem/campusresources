@@ -20,6 +20,20 @@ Google-gated backend, and changes go live immediately.
 Opening a code renders: the default sections → with that location's fields filled in → with any of
 its overrides applied.
 
+## Features
+
+- **Navy/cream handbook** with a sticky top bar: **Search**, **Calendar**, and **Download PDF** (uses
+  the browser's print → Save as PDF).
+- **Search** — instant client-side search that jumps to the matching section.
+- **Ask (AI chat)** — a floating assistant that answers family questions from the handbook (grounded
+  in that campus's content via Claude) and links to the relevant section. Needs `ANTHROPIC_API_KEY`.
+- **Campus calendar** — a per-location academic calendar at `/calendar?code=<code>`. Each event has
+  **Add to Google** and **Apple/.ics** buttons, plus a **Download full calendar (.ics)** for the year.
+- **Google Maps links** — campus address and evacuation assembly areas link out to Google Maps.
+- **External resource links** — known references (e.g. NWEA MAP, ParentSquare) auto-link out; editors
+  can also add Markdown links anytime.
+- **Last edited** month shown on the cover, from the most recent section/location edit.
+
 ## Access
 
 - **Reading** the handbook is open to anyone with the code (no login).
@@ -79,7 +93,19 @@ Local edits persist to `data/store.json` (git-ignored). Delete that file to rese
 | `SEED_EDITOR_EMAILS` | Comma-separated emails allowed in on first run |
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase service-role key (server-side only) |
+| `ANTHROPIC_API_KEY` | Powers the Ask (AI chat) assistant; optional |
+| `ANTHROPIC_MODEL` | Optional model override (default `claude-opus-5`) |
 | `AUTH_DEV_BYPASS` | `true` only for local dev; never in production |
+
+The Supabase schema gained two columns for the calendar (`locations.academic_year`,
+`locations.calendar`). If you set up Supabase before this feature, re-run
+[`supabase/schema.sql`](supabase/schema.sql) — the `create table` is `if not exists`, so add the
+columns with:
+
+```sql
+alter table locations add column if not exists academic_year text not null default '';
+alter table locations add column if not exists calendar jsonb not null default '[]'::jsonb;
+```
 
 ## Adding a new campus
 

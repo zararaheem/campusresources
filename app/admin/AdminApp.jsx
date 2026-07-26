@@ -202,6 +202,7 @@ function LocationEditor({ location, fieldDefs, sections, reload, flash }) {
   const [name, setName] = useState(location.name);
   const [code, setCode] = useState(location.code);
   const [edition, setEdition] = useState(location.edition || '');
+  const [academicYear, setAcademicYear] = useState(location.academic_year || '');
   const [active, setActive] = useState(location.is_active !== false);
   const [fields, setFields] = useState({ ...location.fields });
   const [busy, setBusy] = useState(false);
@@ -226,7 +227,7 @@ function LocationEditor({ location, fieldDefs, sections, reload, flash }) {
   async function saveDetails() {
     setBusy(true); setErr(null);
     try {
-      await api('PATCH', `/api/admin/locations/${location.id}`, { name, code, edition, is_active: active });
+      await api('PATCH', `/api/admin/locations/${location.id}`, { name, code, edition, is_active: active, academic_year: academicYear });
       flash('Saved');
       await reload();
     } catch (e) { setErr(e.message); } finally { setBusy(false); }
@@ -262,6 +263,7 @@ function LocationEditor({ location, fieldDefs, sections, reload, flash }) {
           <div className="field"><label>Campus name</label><input value={name} onChange={(e) => setName(e.target.value)} /></div>
           <div className="field"><label>Code</label><input className="mono" value={code} onChange={(e) => setCode(e.target.value)} /></div>
           <div className="field"><label>Edition label</label><input value={edition} onChange={(e) => setEdition(e.target.value)} /></div>
+          <div className="field"><label>Academic year <span className="ex">e.g. 2026–2027</span></label><input value={academicYear} onChange={(e) => setAcademicYear(e.target.value)} /></div>
         </div>
         <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 14 }}>
           <input type="checkbox" style={{ width: 'auto' }} checked={active} onChange={(e) => setActive(e.target.checked)} />
@@ -303,7 +305,56 @@ function LocationEditor({ location, fieldDefs, sections, reload, flash }) {
       </div>
 
       <OverridesCard location={location} sections={sections} reload={reload} flash={flash} />
+      <CalendarEditorCard location={location} reload={reload} flash={flash} />
     </>
+  );
+}
+
+function CalendarEditorCard({ location, reload, flash }) {
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState(JSON.stringify(location.calendar || [], null, 2));
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(null);
+  const count = Array.isArray(location.calendar) ? location.calendar.length : 0;
+
+  async function save() {
+    setErr(null);
+    let parsed;
+    try {
+      parsed = JSON.parse(text);
+      if (!Array.isArray(parsed)) throw new Error('Must be a JSON array of events.');
+    } catch (e) {
+      setErr('Invalid JSON: ' + e.message);
+      return;
+    }
+    setBusy(true);
+    try {
+      await api('PATCH', `/api/admin/locations/${location.id}`, { calendar: parsed });
+      flash('Calendar saved');
+      await reload();
+      setOpen(false);
+    } catch (e) { setErr(e.message); } finally { setBusy(false); }
+  }
+
+  return (
+    <div className="card">
+      <div className="list-row" style={{ borderBottom: open ? '1px solid var(--line)' : 'none', paddingBottom: open ? 12 : 0 }}>
+        <span className="grow"><strong>Calendar</strong> <span className="muted">· {count} event{count === 1 ? '' : 's'}</span></span>
+        <a className="btn ghost small" href={`/calendar?code=${location.code}`} target="_blank" rel="noreferrer">Preview</a>
+        <button className="btn ghost small" onClick={() => setOpen(!open)}>{open ? 'Close' : 'Edit'}</button>
+      </div>
+      {open && (
+        <div className="section-editor" style={{ paddingTop: 14 }}>
+          <p className="hint">
+            Each event: <code>{'{ "date": "2026-09-08", "title": "First Day", "category": "session" }'}</code>.
+            Add <code>"end": "2026-09-18"</code> for multi-day. Categories: session, holiday, testing, dismissal, staff.
+          </p>
+          <textarea value={text} onChange={(e) => setText(e.target.value)} spellCheck={false} className="mono" />
+          {err && <p style={{ color: 'var(--danger)', fontSize: 14 }}>{err}</p>}
+          <button className="btn" disabled={busy} onClick={save}>Save calendar</button>
+        </div>
+      )}
+    </div>
   );
 }
 

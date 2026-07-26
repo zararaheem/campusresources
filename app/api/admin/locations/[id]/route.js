@@ -17,6 +17,13 @@ export async function PATCH(req, { params }) {
   if (body.edition !== undefined) patch.edition = String(body.edition).trim();
   if (body.is_active !== undefined) patch.is_active = !!body.is_active;
   if (body.fields !== undefined && typeof body.fields === 'object') patch.fields = body.fields;
+  if (body.academic_year !== undefined) patch.academic_year = String(body.academic_year).trim();
+  if (body.calendar !== undefined) {
+    if (!Array.isArray(body.calendar)) {
+      return NextResponse.json({ error: 'Calendar must be a list of events.' }, { status: 400 });
+    }
+    patch.calendar = body.calendar;
+  }
   if (body.code !== undefined) {
     const code = String(body.code).trim().toLowerCase();
     if (!CODE_RE.test(code)) {

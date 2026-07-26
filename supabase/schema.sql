@@ -23,11 +23,13 @@ create table if not exists locations (
   code        text unique not null,
   name        text not null default '',
   edition     text not null default '',
-  is_active   boolean not null default true,
-  fields      jsonb not null default '{}'::jsonb,
-  overrides   jsonb not null default '{}'::jsonb,
-  created_at  timestamptz not null default now(),
-  updated_at  timestamptz not null default now()
+  is_active     boolean not null default true,
+  fields        jsonb not null default '{}'::jsonb,
+  overrides     jsonb not null default '{}'::jsonb,
+  academic_year text not null default '',
+  calendar      jsonb not null default '[]'::jsonb,
+  created_at    timestamptz not null default now(),
+  updated_at    timestamptz not null default now()
 );
 
 -- Google accounts allowed to sign in and edit.
