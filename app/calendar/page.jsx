@@ -1,6 +1,6 @@
 import { getStore } from '@/lib/store';
-import { EVENT_CATEGORIES, groupByMonth, formatRange } from '@/lib/calendar';
-import AddToCalendar, { DownloadYearIcs } from '../components/AddToCalendar';
+import { DownloadYearIcs } from '../components/AddToCalendar';
+import CalendarView from '../components/CalendarView';
 import PrintButton from '../components/PrintButton';
 import AlphaLogo from '../components/AlphaLogo';
 
@@ -31,9 +31,9 @@ export default async function CalendarPage({ searchParams }) {
   if (!location) return <Missing code="" message="Code not found" />;
 
   const events = Array.isArray(location.calendar) ? location.calendar : [];
+  const sessions = Array.isArray(location.sessions) ? location.sessions : [];
   if (events.length === 0) return <Missing code={location.code} message="No calendar set for this campus yet" />;
 
-  const months = groupByMonth(events);
   const addr = location.fields?.address;
   const cityLabel = location.fields?.city || location.name;
   const yearLabel = location.academic_year ? `${location.academic_year} Academic Calendar` : 'Academic Calendar';
@@ -46,7 +46,7 @@ export default async function CalendarPage({ searchParams }) {
           <AlphaLogo size={24} />
           <p className="eyebrow">Alpha {cityLabel} · Academic Calendar</p>
           <h1>{yearLabel}</h1>
-          <p className="sub">Key dates for the school year. Add any event to your Google or Apple calendar.</p>
+          <p className="sub">Everything for the school year at a glance. Tap any key date to add it to your Google or Apple calendar.</p>
           <div className="pills">
             <span className="pill gold">{location.academic_year || 'Living Edition'}</span>
             <span className="pill">{location.code}</span>
@@ -54,7 +54,7 @@ export default async function CalendarPage({ searchParams }) {
         </div>
       </header>
 
-      <div className="wrap" style={{ maxWidth: 820 }}>
+      <div className="wrap" style={{ maxWidth: 940 }}>
         <div className="toolbar">
           <a className="pill-btn" href={`/?code=${location.code}`}>← Handbook</a>
           <span className="spacer" />
@@ -62,31 +62,7 @@ export default async function CalendarPage({ searchParams }) {
           <PrintButton className="pill-btn" label="Download as PDF ↓" />
         </div>
 
-        <div className="cal-legend">
-          {Object.entries(EVENT_CATEGORIES).map(([key, c]) => (
-            <span className="lg" key={key}>
-              <span className="dot" style={{ background: c.color }} /> {c.label}
-            </span>
-          ))}
-        </div>
-
-        {months.map((m) => (
-          <div className="cal-month" key={m.key}>
-            <h3>{m.label}</h3>
-            {m.events.map((ev, i) => {
-              const cat = EVENT_CATEGORIES[ev.category] || EVENT_CATEGORIES.session;
-              return (
-                <div className="cal-row" key={`${ev.date}-${i}`}>
-                  <span className="cal-tag" style={{ background: cat.color }} />
-                  <span className="cal-date">{formatRange(ev)}</span>
-                  <span className="cal-title">{ev.title}</span>
-                  <span className="cal-cat" style={{ background: cat.soft, color: cat.color }}>{cat.label}</span>
-                  <AddToCalendar event={ev} location={addr} calName={calName} />
-                </div>
-              );
-            })}
-          </div>
-        ))}
+        <CalendarView sessions={sessions} events={events} addr={addr} calName={calName} />
 
         <p className="foot">Alpha {location.name} · {yearLabel} · Dates are subject to change; check ParentSquare for updates.</p>
       </div>
