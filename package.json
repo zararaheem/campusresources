@@ -1,0 +1,23 @@
+{
+  "name": "campus-handbook",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Alpha campus handbook — one aligned default, live per-location editions accessed by code.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.4",
+    "marked": "^12.0.2",
+    "next": "16.2.12",
+    "next-auth": "^5.0.0-beta.32",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "engines": {
+    "node": ">=18.18.0"
+  }
+}
