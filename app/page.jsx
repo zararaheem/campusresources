@@ -104,16 +104,19 @@ export default async function Page({ searchParams }) {
         </div>
 
         <div className="grid">
+          <input type="checkbox" id="toc-toggle" className="toc-toggle-cb" aria-hidden="true" />
           <nav className="toc" aria-label="On this page">
-            <div className="toc-label">On this page</div>
-            {groups.map((g) => (
-              <div className="toc-group" key={g.name}>
-                <h5>{g.name}</h5>
-                {g.sections.map((s) => (
-                  <a key={s.key} href={`#${s.key}`}>{s.title}</a>
-                ))}
-              </div>
-            ))}
+            <label htmlFor="toc-toggle" className="toc-summary">On this page</label>
+            <div className="toc-body">
+              {groups.map((g) => (
+                <div className="toc-group" key={g.name}>
+                  <h5>{g.name}</h5>
+                  {g.sections.map((s) => (
+                    <a key={s.key} href={`#${s.key}`}>{s.title}</a>
+                  ))}
+                </div>
+              ))}
+            </div>
           </nav>
 
           <main>
