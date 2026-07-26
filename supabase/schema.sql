@@ -30,6 +30,7 @@ create table if not exists locations (
   calendar          jsonb not null default '[]'::jsonb,
   sessions          jsonb not null default '[]'::jsonb,
   calendar_template text not null default '',
+  extra_sections    jsonb not null default '[]'::jsonb,  -- per-location sections (e.g. state policies)
   created_at    timestamptz not null default now(),
   updated_at    timestamptz not null default now()
 );

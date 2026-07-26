@@ -20,7 +20,7 @@ function Landing({ code }) {
   return (
     <div className="landing">
       <div className="landing-inner">
-        <AlphaLogo size={26} />
+        <AlphaLogo size={46} />
         <p className="campus-tag">Campus Resources</p>
         <div className="access-card">
           <h2>Campus Handbook</h2>
@@ -46,7 +46,7 @@ export default async function Page({ searchParams }) {
     return (
       <div className="landing">
         <div className="landing-inner">
-          <AlphaLogo size={26} />
+          <AlphaLogo size={46} />
           <p className="campus-tag">Campus Resources</p>
           <div className="access-card">
             <h2>Code not found</h2>
