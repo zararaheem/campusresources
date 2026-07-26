@@ -2,10 +2,10 @@
 
 import { useState } from 'react';
 
-// Uses the uploaded brand logo at /public/alpha-logo.svg when present, and
+// Uses the uploaded brand logo at /public/alpha_white.png when present, and
 // falls back to a built-in faceted "digital hummingbird" mark + ALPHA wordmark
-// otherwise. To use the official logo, drop the file at public/alpha-logo.svg
-// (it sits on a navy background, so a white / light version reads best).
+// otherwise. To use the official logo, drop the file at public/alpha_white.png
+// (it sits on a navy background, so the white version reads best).
 export default function AlphaLogo({ size = 30, className = '' }) {
   const [useImg, setUseImg] = useState(true);
 
@@ -14,7 +14,7 @@ export default function AlphaLogo({ size = 30, className = '' }) {
       <span className={`alpha-logo ${className}`} aria-label="Alpha">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/alpha-logo.svg"
+          src="/alpha_white.png"
           alt="Alpha"
           className="alpha-logo-img"
           style={{ height: size, width: 'auto' }}
