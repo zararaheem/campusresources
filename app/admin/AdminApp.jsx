@@ -337,9 +337,90 @@ function LocationEditor({ location, fieldDefs, sections, templates = [], reload,
       )}
 
       <OverridesCard location={location} sections={sections} reload={reload} flash={flash} />
+      <SectionsCard location={location} reload={reload} flash={flash} />
       {superUser && <TemplateCard location={location} templates={templates} reload={reload} flash={flash} />}
       {superUser && <CalendarEditorCard location={location} reload={reload} flash={flash} />}
     </>
+  );
+}
+
+/* Per-location sections a campus adds for itself (e.g. state-specific policies). */
+function SectionsCard({ location, reload, flash }) {
+  const list = Array.isArray(location.extra_sections) ? location.extra_sections : [];
+  const [adding, setAdding] = useState(false);
+  return (
+    <div className="card">
+      <h3>Campus sections</h3>
+      <p className="hint">
+        Add sections that appear only on <strong>{location.name}</strong>&apos;s handbook (e.g. state-specific
+        policies). They show at the end of whichever group you name (default <code>Policies</code>).
+      </p>
+      {list.length === 0 && <p className="muted" style={{ fontSize: 14 }}>No campus-specific sections yet.</p>}
+      {list.map((s) => (
+        <ExtraSectionRow key={s.key} location={location} section={s} reload={reload} flash={flash} />
+      ))}
+      {adding ? (
+        <ExtraSectionRow location={location} section={null} reload={reload} flash={flash} onDone={() => setAdding(false)} />
+      ) : (
+        <button className="btn ghost small" style={{ marginTop: 12 }} onClick={() => setAdding(true)}>+ Add a section</button>
+      )}
+    </div>
+  );
+}
+
+function ExtraSectionRow({ location, section, reload, flash, onDone }) {
+  const isNew = !section;
+  const [open, setOpen] = useState(isNew);
+  const [title, setTitle] = useState(section?.title || '');
+  const [group, setGroup] = useState(section?.group || 'Policies');
+  const [body, setBody] = useState(section?.body || '');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(null);
+
+  async function save() {
+    if (!title.trim()) { setErr('Title is required.'); return; }
+    setBusy(true); setErr(null);
+    try {
+      await api('POST', `/api/admin/locations/${location.id}/sections`, { key: section?.key, title, group, body });
+      flash(isNew ? 'Section added' : 'Section saved');
+      await reload();
+      if (onDone) onDone(); else setOpen(false);
+    } catch (e) { setErr(e.message); } finally { setBusy(false); }
+  }
+
+  async function remove() {
+    if (!confirm(`Remove "${section.title}" from ${location.name}?`)) return;
+    setBusy(true); setErr(null);
+    try {
+      await api('DELETE', `/api/admin/locations/${location.id}/sections`, { key: section.key });
+      flash('Section removed');
+      await reload();
+    } catch (e) { setErr(e.message); } finally { setBusy(false); }
+  }
+
+  if (!isNew && !open) {
+    return (
+      <div className="list-row">
+        <span className="grow"><strong>{section.title}</strong> <span className="muted" style={{ fontSize: 12 }}>· {section.group || 'Policies'}</span></span>
+        <button className="btn ghost small" onClick={() => setOpen(true)}>Edit</button>
+        <button className="btn ghost small" onClick={remove}>Remove</button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="section-editor" style={{ padding: '14px 0', borderTop: '1px solid var(--line)' }}>
+      <div className="row">
+        <div className="field" style={{ flex: 2 }}><label>Title</label><input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Standardized Testing" /></div>
+        <div className="field" style={{ flex: 1 }}><label>Group <span className="ex">where it appears</span></label><input value={group} onChange={(e) => setGroup(e.target.value)} placeholder="Policies" /></div>
+      </div>
+      <div className="field"><label>Body (Markdown)</label><textarea style={{ minHeight: 130 }} value={body} onChange={(e) => setBody(e.target.value)} placeholder="Write the section content…" /></div>
+      {err && <p style={{ color: 'var(--danger)', fontSize: 14 }}>{err}</p>}
+      <div className="row">
+        <button className="btn" disabled={busy} onClick={save}>{isNew ? 'Add section' : 'Save section'}</button>
+        <button className="btn ghost" disabled={busy} onClick={() => (onDone ? onDone() : setOpen(false))}>Cancel</button>
+      </div>
+    </div>
   );
 }
 
