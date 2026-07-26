@@ -25,8 +25,9 @@ its overrides applied.
 - **Navy/cream handbook** with a sticky top bar: **Search**, **Calendar**, and **Download PDF** (uses
   the browser's print → Save as PDF).
 - **Search** — instant client-side search that jumps to the matching section.
-- **Ask (AI chat)** — a floating assistant that answers family questions from the handbook (grounded
-  in that campus's content via Claude) and links to the relevant section. Needs `ANTHROPIC_API_KEY`.
+- **Find an answer** — a floating keyword helper (no external API) that matches a family's question to
+  the most relevant sections and links to them; if nothing matches, it points families to their campus
+  team via ParentSquare.
 - **Campus calendar** — a per-location academic calendar at `/calendar?code=<code>`. Each event has
   **Add to Google** and **Apple/.ics** buttons, plus a **Download full calendar (.ics)** for the year.
 - **Google Maps links** — campus address and evacuation assembly areas link out to Google Maps.
@@ -93,8 +94,6 @@ Local edits persist to `data/store.json` (git-ignored). Delete that file to rese
 | `SEED_EDITOR_EMAILS` | Comma-separated emails allowed in on first run |
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase service-role key (server-side only) |
-| `ANTHROPIC_API_KEY` | Powers the Ask (AI chat) assistant; optional |
-| `ANTHROPIC_MODEL` | Optional model override (default `claude-opus-5`) |
 | `AUTH_DEV_BYPASS` | `true` only for local dev; never in production |
 
 The Supabase schema gained two columns for the calendar (`locations.academic_year`,

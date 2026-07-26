@@ -2,6 +2,7 @@ import { getStore } from '@/lib/store';
 import { EVENT_CATEGORIES, groupByMonth, formatRange } from '@/lib/calendar';
 import AddToCalendar, { DownloadYearIcs } from '../components/AddToCalendar';
 import PrintButton from '../components/PrintButton';
+import AlphaLogo from '../components/AlphaLogo';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,9 +10,12 @@ function Missing({ code, message }) {
   return (
     <div className="landing">
       <div className="landing-inner">
-        <div className="logo-word">Alpha<span className="dot">.</span></div>
-        <h1 className="cr-title" style={{ fontSize: 30 }}>{message}</h1>
-        <a className="btn gold" href={code ? `/?code=${code}` : '/'} style={{ marginTop: 12 }}>← Back to handbook</a>
+        <AlphaLogo size={26} />
+        <p className="campus-tag">Campus Resources</p>
+        <div className="access-card">
+          <h2>{message}</h2>
+          <a className="btn gold" href={code ? `/?code=${code}` : '/'} style={{ marginTop: 8 }}>← Back to handbook</a>
+        </div>
       </div>
     </div>
   );
@@ -31,36 +35,33 @@ export default async function CalendarPage({ searchParams }) {
 
   const months = groupByMonth(events);
   const addr = location.fields?.address;
+  const cityLabel = location.fields?.city || location.name;
   const yearLabel = location.academic_year ? `${location.academic_year} Academic Calendar` : 'Academic Calendar';
   const calName = `Alpha ${location.name} ${location.academic_year || ''}`.trim();
 
   return (
     <>
-      <div className="topbar">
-        <div className="topbar-inner">
-          <span className="brandmark">Alpha <span className="accent">Campus Calendar</span></span>
-          <span className="spacer" />
-          <div className="tb-actions">
-            <a className="tb-btn" href={`/?code=${location.code}`}>← Handbook</a>
-            <DownloadYearIcs events={events} location={addr} calName={calName} className="tb-btn gold" />
-            <PrintButton />
-          </div>
-        </div>
-      </div>
-
-      <header className="cover">
-        <div className="cover-inner">
-          <p className="eyebrow">Alpha {location.name}</p>
+      <header className="hero">
+        <div className="hero-inner">
+          <AlphaLogo size={24} />
+          <p className="eyebrow">Alpha {cityLabel} · Academic Calendar</p>
           <h1>{yearLabel}</h1>
           <p className="sub">Key dates for the school year. Add any event to your Google or Apple calendar.</p>
-          <div className="meta">
+          <div className="pills">
             <span className="pill gold">{location.academic_year || 'Living Edition'}</span>
-            <span className="pill mono">{location.code}</span>
+            <span className="pill">{location.code}</span>
           </div>
         </div>
       </header>
 
-      <div className="shell" style={{ maxWidth: 820 }}>
+      <div className="wrap" style={{ maxWidth: 820 }}>
+        <div className="toolbar">
+          <a className="pill-btn" href={`/?code=${location.code}`}>← Handbook</a>
+          <span className="spacer" />
+          <DownloadYearIcs events={events} location={addr} calName={calName} className="pill-btn solid" />
+          <PrintButton className="pill-btn" label="Download as PDF ↓" />
+        </div>
+
         <div className="cal-legend">
           {Object.entries(EVENT_CATEGORIES).map(([key, c]) => (
             <span className="lg" key={key}>
@@ -87,9 +88,7 @@ export default async function CalendarPage({ searchParams }) {
           </div>
         ))}
 
-        <p className="foot">
-          Alpha {location.name} · {yearLabel} · Dates are subject to change; check ParentSquare for updates.
-        </p>
+        <p className="foot">Alpha {location.name} · {yearLabel} · Dates are subject to change; check ParentSquare for updates.</p>
       </div>
     </>
   );
