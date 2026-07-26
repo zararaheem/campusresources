@@ -59,7 +59,7 @@ export default async function CalendarPage({ searchParams }) {
           <a className="pill-btn" href={`/?code=${location.code}`}>← Handbook</a>
           <span className="spacer" />
           <DownloadYearIcs events={events} location={addr} calName={calName} className="pill-btn solid" />
-          <PrintButton className="pill-btn" label="Download as PDF ↓" />
+          <PrintButton className="pill-btn" label="Download as PDF" />
         </div>
 
         <CalendarView sessions={sessions} events={events} addr={addr} calName={calName} />
