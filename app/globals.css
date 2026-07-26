@@ -403,42 +403,139 @@ textarea { min-height: 120px; resize: vertical; line-height: 1.5; font-size: 14p
 /* Print / PDF — mimic the on-screen branded design (navy hero, cream page,
    gold accents, serif headings, white cards). Colors are forced on so the
    saved PDF looks like the site, not a stripped black-and-white page. */
+/* The full-page PDF cover and the print calendar are print-only. */
+.print-cover, .cal-print { display: none; }
+
 @media print {
   * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-  @page { margin: 14mm; }
+  /* No side margins → the cream page + navy hero fill the sheet edge-to-edge
+     (small top/bottom only, so pagination breathes). */
+  @page { margin: 6mm 0; }
 
-  html, body { background: var(--cream) !important; color: var(--ink) !important; }
+  html, body { background: var(--cream) !important; color: var(--ink) !important; font-size: 11px !important; }
 
-  /* Hide interactive chrome only. */
-  .toolbar, .toc, .chat-fab, .chat-panel, .search-wrap, .cal-add,
+  /* Hide interactive chrome only (the sidebar becomes a contents page). */
+  .toolbar, .chat-fab, .chat-panel, .search-wrap, .cal-add,
   .cal-toggle, .comingup .cal-add, .no-print { display: none !important; }
 
-  /* Keep the navy hero, just tightened for paper. */
-  .hero { background: var(--navy) !important; color: #fff !important; padding: 26px 30px !important; break-inside: avoid; }
+  /* Turn the "On this page" sidebar into a printed Table of Contents page. */
+  .toc {
+    display: block !important; position: static !important; width: 100% !important;
+    columns: 2; column-gap: 34px; break-after: page;
+    padding: 2px 2px 0 !important; margin: 0 0 4px !important;
+  }
+  .toc::before {
+    content: 'Table of Contents'; column-span: all; display: block;
+    font-family: var(--serif); color: var(--navy) !important;
+    font-size: 20px; font-weight: 700; margin: 2px 0 12px;
+  }
+  .toc .toc-label { display: none !important; }
+  .toc-group { break-inside: avoid; margin: 0 0 11px !important; }
+  .toc-group h5 {
+    color: var(--gold-deep) !important; font-size: 10px !important; font-weight: 800;
+    text-transform: uppercase; letter-spacing: 0.09em; margin: 0 0 4px !important;
+  }
+  .toc a {
+    display: block !important; color: var(--ink) !important; text-decoration: none !important;
+    font-size: 10.5px !important; padding: 2px 0 !important;
+    border: none !important; margin: 0 !important;
+  }
+
+  /* Default print hero: a compact navy band (used by the calendar one-pager). */
+  .hero {
+    background: var(--navy) !important; color: #fff !important;
+    padding: 14px 18px !important; text-align: center; break-inside: avoid;
+  }
   .hero .alpha-logo { color: #fff; }
-  .hero .eyebrow { color: var(--gold) !important; }
-  .hero h1 { color: #fff !important; }
-  .hero .sub { color: rgba(255,255,255,0.85) !important; }
-  .pill { color: #fff !important; }
+  .hero .eyebrow { color: var(--gold) !important; font-size: 10px !important; }
+  .hero h1 { color: #fff !important; font-size: 22px !important; margin: 4px 0 !important; }
+  .hero .sub { color: rgba(255,255,255,0.85) !important; font-size: 11px !important; }
+  .pill { color: #fff !important; font-size: 10px !important; padding: 4px 9px !important; }
   .pill.gold { background: var(--gold) !important; color: #2a2000 !important; }
 
-  /* Full-width body, keep the cream page + white cards. */
-  .wrap { max-width: 100% !important; padding: 18px 6px !important; }
+  /* Handbook only (it renders .print-cover): hero becomes a full-page cover. */
+  body:has(.print-cover) .hero {
+    min-height: 96vh !important; box-sizing: border-box; position: relative;
+    display: flex !important; align-items: center !important; justify-content: center !important;
+    padding: 0 !important; break-after: page;
+  }
+  body:has(.print-cover) .hero-inner { display: none !important; }
+  .print-cover {
+    display: flex !important; flex-direction: column; align-items: center; justify-content: center;
+    width: 100%; min-height: 96vh; position: relative; padding: 48px 40px; box-sizing: border-box;
+  }
+  .print-cover .alpha-logo { margin-bottom: 22px; }
+  .pc-center { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .pc-title { font-family: var(--serif); font-size: 46px; font-weight: 700; color: #fff; line-height: 1.05; }
+  .pc-city { font-family: var(--serif); font-size: 24px; color: var(--gold); font-weight: 600; }
+  .pc-edition {
+    margin-top: 10px; font-size: 12px; color: rgba(255,255,255,0.8);
+    text-transform: uppercase; letter-spacing: 0.24em; font-weight: 700;
+  }
+  .pc-edited { position: absolute; bottom: 26px; left: 30px; font-size: 11px; color: rgba(255,255,255,0.72); }
+
+  /* Full-bleed body; minimal side padding so text isn't glued to the edge. */
+  .wrap { max-width: 100% !important; padding: 10px 14px !important; }
   .grid { display: block; }
 
+  /* Clean, compact cards. */
   .section {
     break-inside: avoid; background: #fff !important;
-    border: 1px solid var(--line) !important; border-radius: var(--radius) !important;
-    box-shadow: none !important; padding: 18px 22px !important; margin-bottom: 14px !important;
+    border: 1px solid var(--line) !important; border-radius: 8px !important;
+    box-shadow: none !important; padding: 10px 14px !important; margin-bottom: 8px !important;
   }
-  .section-group-title { color: var(--navy) !important; }
+  .section-group-title { color: var(--navy) !important; font-size: 15px !important; margin: 8px 2px 5px !important; }
+  .section > h2 { font-size: 14px !important; margin: 0 0 5px !important; }
+  .prose, .prose p, .prose li { font-size: 10.5px !important; line-height: 1.45 !important; }
+  .prose p { margin: 0 0 7px !important; }
+  .prose li { margin: 2px 0 !important; }
+  .prose h3 { font-size: 12px !important; margin: 10px 0 4px !important; }
+  .prose h4 { font-size: 11px !important; margin: 8px 0 3px !important; }
   .prose a { color: var(--gold-deep) !important; }
   a[href]::after { content: ''; }
+  .foot { font-size: 9px !important; }
 
-  /* Calendar: keep the color-coded month grids + key dates. */
+  /* Calendar: keep the color-coded month grids + key dates, compact. */
   .mgrid, .keydates, .cal-key, .comingup {
     break-inside: avoid; box-shadow: none !important; border: 1px solid var(--line) !important;
   }
   .comingup { background: var(--navy) !important; color: #fff !important; }
   .mgrid-row { display: flex !important; flex-wrap: wrap !important; }
+  .cal-session-h h3 { font-size: 15px !important; }
+  .mday { font-size: 10px !important; }
+
+  /* Calendar → clean single-page "year at a glance" (matches the reference):
+     bright header + a 12-month grid with key dates under each month + a KEY. */
+  body:has(.calview) .hero, body:has(.calview) .toolbar { display: none !important; }
+  body:has(.calview) .wrap { padding: 0 !important; }
+  body:has(.calview) .foot { display: none !important; }
+  .calview > .comingup, .calview > .cal-key, .calview > .cal-toggle,
+  .calview > .cal-session, .calview > .cal-months { display: none !important; }
+
+  .cal-print { display: block !important; }
+  .cpx-head {
+    background: var(--navy) !important; color: #fff; display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 24px; margin-bottom: 12px;
+  }
+  .cpx-city { font-family: var(--serif); font-size: 22px; font-weight: 800; line-height: 1.05; }
+  .cpx-year { font-size: 13px; font-weight: 600; color: var(--gold); margin-top: 1px; }
+  .cpx-sub { font-size: 10px; font-weight: 800; letter-spacing: 0.18em; text-transform: uppercase; margin-top: 5px; opacity: 0.85; }
+  .cpx-head .alpha-logo { color: #fff; }
+
+  .cal-print-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px 16px; padding: 0 22px 8px; }
+  .cpm { break-inside: avoid; }
+  .cpm .mgrid { border: none !important; box-shadow: none !important; background: none !important; padding: 0 !important; width: 100% !important; }
+  .cpm .mgrid-title { font-size: 11px !important; font-family: var(--serif); color: var(--navy) !important; font-weight: 700; margin-bottom: 3px !important; }
+  .cpm .mgrid-dow span { font-size: 7px !important; color: var(--gold-deep) !important; font-weight: 700; }
+  .cpm .mgrid-days { gap: 1.5px !important; }
+  .cpm .mday { font-size: 8px !important; border-radius: 2px !important; color: #1b2a4a !important; aspect-ratio: auto !important; height: 14px !important; }
+  .cpm .mday.is-out { color: #9aa3b2 !important; }
+  .cpm-dates { margin-top: 3px; }
+  .cpm-date { display: flex; gap: 6px; font-size: 6.5px; line-height: 1.35; margin-bottom: 1px; }
+  .cpm-d { color: var(--gold-deep); font-weight: 800; white-space: nowrap; min-width: 38px; text-transform: uppercase; }
+  .cpm-t { color: var(--ink); }
+  .cpm-key { padding-top: 2px; }
+  .cpm-key-title { font-size: 11px; font-family: var(--serif); color: var(--navy); font-weight: 700; margin-bottom: 6px; }
+  .cpm-key-item { display: flex; align-items: center; gap: 6px; font-size: 7.5px; margin-bottom: 4px; color: var(--ink); }
+  .cpm-key-item .swatch { width: 12px; height: 12px; }
 }

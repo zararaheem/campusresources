@@ -1,7 +1,29 @@
-// Alpha wordmark with a faceted "digital hummingbird" mark, rendered in the
-// current text color. Drop the official logo at /public/alpha-logo.svg and
-// swap the <svg> for an <img> if you'd rather use the exact brand asset.
+'use client';
+
+import { useState } from 'react';
+
+// Uses the uploaded brand logo at /public/alpha-logo.svg when present, and
+// falls back to a built-in faceted "digital hummingbird" mark + ALPHA wordmark
+// otherwise. To use the official logo, drop the file at public/alpha-logo.svg
+// (it sits on a navy background, so a white / light version reads best).
 export default function AlphaLogo({ size = 30, className = '' }) {
+  const [useImg, setUseImg] = useState(true);
+
+  if (useImg) {
+    return (
+      <span className={`alpha-logo ${className}`} aria-label="Alpha">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/alpha-logo.svg"
+          alt="Alpha"
+          className="alpha-logo-img"
+          style={{ height: size, width: 'auto' }}
+          onError={() => setUseImg(false)}
+        />
+      </span>
+    );
+  }
+
   return (
     <span className={`alpha-logo ${className}`} aria-label="Alpha">
       <svg width={size * 1.35} height={size} viewBox="0 0 54 40" fill="currentColor" aria-hidden>

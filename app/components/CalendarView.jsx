@@ -14,8 +14,73 @@ import {
   monthName,
 } from '@/lib/calendar';
 import AddToCalendar from './AddToCalendar';
+import AlphaLogo from './AlphaLogo';
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+
+// Every month from the first to the last dated thing in the school year.
+function schoolYearMonths(sessions, events) {
+  const ds = [];
+  (sessions || []).forEach((s) => { ds.push(s.start, s.end); });
+  (events || []).forEach((e) => { ds.push(e.date, e.end || e.date); });
+  if (!ds.length) return [];
+  let min = ds[0], max = ds[0];
+  for (const d of ds) { if (d < min) min = d; if (d > max) max = d; }
+  let [y, m] = min.split('-').map(Number);
+  const [ey, em] = max.split('-').map(Number);
+  const out = [];
+  while (y < ey || (y === ey && m <= em)) { out.push({ year: y, month: m }); m += 1; if (m > 12) { m = 1; y += 1; } }
+  return out;
+}
+function monthKeyDates(year, month, events) {
+  const prefix = `${year}-${String(month).padStart(2, '0')}`;
+  return (events || []).filter((e) => (e.date || '').startsWith(prefix)).sort((a, b) => a.date.localeCompare(b.date));
+}
+
+// Print-only "year at a glance": bright header + 12-month grid with key dates.
+function PrintCalendar({ sessions, events, today, cityLabel, academicYear }) {
+  const months = schoolYearMonths(sessions, events);
+  return (
+    <div className="cal-print" aria-hidden="true">
+      <div className="cpx-head">
+        <div className="cpx-head-l">
+          <div className="cpx-city">{cityLabel}</div>
+          {academicYear && <div className="cpx-year">{academicYear}</div>}
+          <div className="cpx-sub">Academic Calendar Year</div>
+        </div>
+        <AlphaLogo size={30} />
+      </div>
+      <div className="cal-print-grid">
+        {months.map((m) => {
+          const kd = monthKeyDates(m.year, m.month, events);
+          return (
+            <div className="cpm" key={`${m.year}-${m.month}`}>
+              <MonthGrid year={m.year} month={m.month} sessions={sessions} events={events} today={today} />
+              {kd.length > 0 && (
+                <div className="cpm-dates">
+                  {kd.map((ev, i) => (
+                    <div className="cpm-date" key={i}>
+                      <span className="cpm-d">{formatRange(ev)}</span>
+                      <span className="cpm-t">{ev.title}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+        <div className="cpm cpm-key">
+          <div className="cpm-key-title">Key</div>
+          {DAY_LEGEND.map((l) => (
+            <div className="cpm-key-item" key={l.key}>
+              <span className={`swatch is-${l.key}`} />{l.label}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function todayIso() {
   const d = new Date();
@@ -76,7 +141,7 @@ function KeyDates({ dates, addr, calName }) {
   );
 }
 
-export default function CalendarView({ sessions = [], events = [], addr, calName }) {
+export default function CalendarView({ sessions = [], events = [], addr, calName, cityLabel, academicYear }) {
   const [view, setView] = useState('session');
   const today = useMemo(() => todayIso(), []);
   const upcoming = useMemo(() => nextEvent(events, today), [events, today]);
@@ -84,6 +149,9 @@ export default function CalendarView({ sessions = [], events = [], addr, calName
 
   return (
     <div className="calview">
+      {/* Print-only clean one-pager (12-month grid). */}
+      <PrintCalendar sessions={sessions} events={events} today={today} cityLabel={cityLabel} academicYear={academicYear} />
+
       {/* Coming up */}
       {upcoming && (
         <div className="comingup">
