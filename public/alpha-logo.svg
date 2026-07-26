@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 210 40" fill="#ffffff" role="img" aria-label="Alpha">
+  <!-- Placeholder Alpha logo. Replace this file with the official brand SVG.
+       It sits on a navy background, so a white / light version reads best. -->
+  <rect x="0" y="6" width="4" height="4" opacity="0.45"/>
+  <rect x="7" y="1" width="4" height="4" opacity="0.7"/>
+  <rect x="6" y="10" width="4" height="4" opacity="0.85"/>
+  <rect x="13" y="6" width="4" height="4"/>
+  <polygon points="18,10 34,16 22,20"/>
+  <polygon points="22,20 34,16 30,27"/>
+  <polygon points="34,16 52,9 36,19"/>
+  <polygon points="22,20 30,27 20,31"/>
+  <text x="66" y="27" font-family="'Helvetica Neue',Arial,sans-serif" font-size="20" font-weight="700" letter-spacing="5">ALPHA</text>
+</svg>

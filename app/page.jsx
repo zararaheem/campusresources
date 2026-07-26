@@ -82,13 +82,24 @@ export default async function Page({ searchParams }) {
             {edited?.label && <span className="pill">Last edited {edited.label}</span>}
           </div>
         </div>
+
+        {/* Full-page cover — only rendered in the printed / PDF version. */}
+        <div className="print-cover" aria-hidden="true">
+          <div className="pc-center">
+            <AlphaLogo size={52} />
+            <div className="pc-title">Campus Handbook</div>
+            <div className="pc-city">{cityLabel}</div>
+            <div className="pc-edition">{editionLabel}</div>
+          </div>
+          {edited?.label && <div className="pc-edited">Last edited: {edited.label}</div>}
+        </div>
       </header>
 
       <div className="wrap">
         <div className="toolbar">
           <SearchBar index={searchIndex} />
           <span className="spacer" />
-          {hasCalendar && <a className="pill-btn solid" href={`/calendar?code=${location.code}`}>📅 Calendar</a>}
+          {hasCalendar && <a className="pill-btn solid" href={`/calendar?code=${location.code}`}>Calendar <span aria-hidden>↗</span></a>}
           <PrintButton className="pill-btn" label="Download as PDF" />
         </div>
 
