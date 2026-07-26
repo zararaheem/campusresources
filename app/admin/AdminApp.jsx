@@ -63,10 +63,16 @@ export default function AdminApp({ editorEmail, dev, signOutAction }) {
     return <div className="admin-wrap"><p className="muted">Loading…</p></div>;
   }
 
+  const superUser = data.editor?.role === 'super';
+  const activeTab = superUser ? tab : 'locations';
+
   return (
     <>
       <div className="admin-top">
         <span className="brand">Handbook Editor</span>
+        <span className={`badge ${superUser ? 'ok' : 'edit'}`}>
+          {superUser ? 'Superadmin' : 'Campus editor'}
+        </span>
         {!data.persistent && (
           <span className="badge warn" title="Set Supabase env vars for persistent, shared storage">
             local preview — changes are not shared
@@ -83,21 +89,23 @@ export default function AdminApp({ editorEmail, dev, signOutAction }) {
       </div>
 
       <div className="admin-wrap">
-        <div className="tabs">
-          <button className={`tab ${tab === 'locations' ? 'active' : ''}`} onClick={() => setTab('locations')}>
-            Locations
-          </button>
-          <button className={`tab ${tab === 'sections' ? 'active' : ''}`} onClick={() => setTab('sections')}>
-            Default Handbook
-          </button>
-          <button className={`tab ${tab === 'editors' ? 'active' : ''}`} onClick={() => setTab('editors')}>
-            Editors
-          </button>
-        </div>
+        {superUser && (
+          <div className="tabs">
+            <button className={`tab ${activeTab === 'locations' ? 'active' : ''}`} onClick={() => setTab('locations')}>Locations</button>
+            <button className={`tab ${activeTab === 'sections' ? 'active' : ''}`} onClick={() => setTab('sections')}>Default Handbook</button>
+            <button className={`tab ${activeTab === 'editors' ? 'active' : ''}`} onClick={() => setTab('editors')}>Editors</button>
+          </div>
+        )}
+        {!superUser && (
+          <p className="hint" style={{ marginBottom: 16 }}>
+            You&apos;re a campus editor. Choose which sections appear for your campus and edit their wording —
+            changes stay on your campus only.
+          </p>
+        )}
 
-        {tab === 'locations' && <LocationsTab data={data} reload={reload} flash={flash} />}
-        {tab === 'sections' && <SectionsTab data={data} reload={reload} flash={flash} />}
-        {tab === 'editors' && <EditorsTab data={data} reload={reload} flash={flash} editorEmail={editorEmail} />}
+        {activeTab === 'locations' && <LocationsTab data={data} reload={reload} flash={flash} superUser={superUser} />}
+        {activeTab === 'sections' && superUser && <SectionsTab data={data} reload={reload} flash={flash} />}
+        {activeTab === 'editors' && superUser && <EditorsTab data={data} reload={reload} flash={flash} editorEmail={editorEmail} />}
       </div>
 
       {toast && <div className="toast">{toast}</div>}
@@ -106,19 +114,23 @@ export default function AdminApp({ editorEmail, dev, signOutAction }) {
 }
 
 /* ─────────────────────────── Locations ─────────────────────────── */
-function LocationsTab({ data, reload, flash }) {
-  const { locations, fieldDefs, sections } = data;
+function LocationsTab({ data, reload, flash, superUser }) {
+  const { locations, fieldDefs, sections, templates } = data;
   const [selectedId, setSelectedId] = useState(locations[0]?.id || null);
   const [creating, setCreating] = useState(false);
 
   const selected = locations.find((l) => l.id === selectedId) || null;
+
+  if (locations.length === 0) {
+    return <div className="card"><h3>No campuses assigned</h3><p className="hint">Ask a superadmin to assign you a campus.</p></div>;
+  }
 
   return (
     <>
       <div className="card">
         <div className="row">
           <div className="field" style={{ flex: 1 }}>
-            <label>Campus edition</label>
+            <label>Campus</label>
             <select value={selectedId || ''} onChange={(e) => { setSelectedId(e.target.value); setCreating(false); }}>
               {locations.map((l) => (
                 <option key={l.id} value={l.id}>
@@ -127,24 +139,25 @@ function LocationsTab({ data, reload, flash }) {
               ))}
             </select>
           </div>
-          <button className="btn" onClick={() => setCreating(true)}>+ New location</button>
+          {superUser && <button className="btn" onClick={() => setCreating(true)}>+ New location</button>}
         </div>
       </div>
 
-      {creating && <NewLocationCard fieldDefs={fieldDefs} locations={locations} onDone={async (id) => { await reload(); setSelectedId(id); setCreating(false); }} onCancel={() => setCreating(false)} flash={flash} />}
+      {creating && superUser && <NewLocationCard fieldDefs={fieldDefs} locations={locations} templates={templates} onDone={async (id) => { await reload(); setSelectedId(id); setCreating(false); }} onCancel={() => setCreating(false)} flash={flash} />}
 
       {!creating && selected && (
-        <LocationEditor key={selected.id} location={selected} fieldDefs={fieldDefs} sections={sections} reload={reload} flash={flash} />
+        <LocationEditor key={selected.id} location={selected} fieldDefs={fieldDefs} sections={sections} templates={templates} reload={reload} flash={flash} superUser={superUser} />
       )}
     </>
   );
 }
 
-function NewLocationCard({ fieldDefs, locations, onDone, onCancel, flash }) {
+function NewLocationCard({ fieldDefs, locations, templates = [], onDone, onCancel, flash }) {
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
   const [edition, setEdition] = useState('');
   const [copyFrom, setCopyFrom] = useState('');
+  const [template, setTemplate] = useState('A');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
 
@@ -154,7 +167,7 @@ function NewLocationCard({ fieldDefs, locations, onDone, onCancel, flash }) {
     try {
       const src = locations.find((l) => l.id === copyFrom);
       const fields = src ? { ...src.fields } : {};
-      const { location } = await api('POST', '/api/admin/locations', { code, name, edition, fields });
+      const { location } = await api('POST', '/api/admin/locations', { code, name, edition, fields, calendar_template: template });
       flash('Location created');
       onDone(location.id);
     } catch (e) {
@@ -182,12 +195,20 @@ function NewLocationCard({ fieldDefs, locations, onDone, onCancel, flash }) {
           <input type="text" value={edition} onChange={(e) => setEdition(e.target.value)} placeholder="2026" />
         </div>
       </div>
-      <div className="field">
-        <label>Start from <span className="ex">optional — copy field values from another campus</span></label>
-        <select value={copyFrom} onChange={(e) => setCopyFrom(e.target.value)}>
-          <option value="">Blank (fill in fresh)</option>
-          {locations.map((l) => <option key={l.id} value={l.id}>{l.name} — {l.code}</option>)}
-        </select>
+      <div className="row">
+        <div className="field">
+          <label>Calendar template <span className="ex">applies that calendar&apos;s dates</span></label>
+          <select value={template} onChange={(e) => setTemplate(e.target.value)}>
+            {templates.map((t) => <option key={t.key} value={t.key}>{t.name} — {t.description}</option>)}
+          </select>
+        </div>
+        <div className="field">
+          <label>Start from <span className="ex">optional — copy field values</span></label>
+          <select value={copyFrom} onChange={(e) => setCopyFrom(e.target.value)}>
+            <option value="">Blank (fill in fresh)</option>
+            {locations.map((l) => <option key={l.id} value={l.id}>{l.name} — {l.code}</option>)}
+          </select>
+        </div>
       </div>
       {err && <p style={{ color: 'var(--danger)', fontSize: 14 }}>{err}</p>}
       <div className="row">
@@ -198,7 +219,7 @@ function NewLocationCard({ fieldDefs, locations, onDone, onCancel, flash }) {
   );
 }
 
-function LocationEditor({ location, fieldDefs, sections, reload, flash }) {
+function LocationEditor({ location, fieldDefs, sections, templates = [], reload, flash, superUser }) {
   const [name, setName] = useState(location.name);
   const [code, setCode] = useState(location.code);
   const [edition, setEdition] = useState(location.edition || '');
@@ -254,59 +275,103 @@ function LocationEditor({ location, fieldDefs, sections, reload, flash }) {
 
   return (
     <>
-      <div className="card">
-        <h3>{location.name} <span className="muted mono" style={{ fontSize: 14 }}>· {location.code}</span></h3>
-        <p className="hint">
-          Opens at <a href={`/?code=${location.code}`} target="_blank" rel="noreferrer">/?code={location.code}</a>
-        </p>
-        <div className="row">
-          <div className="field"><label>Campus name</label><input value={name} onChange={(e) => setName(e.target.value)} /></div>
-          <div className="field"><label>Code</label><input className="mono" value={code} onChange={(e) => setCode(e.target.value)} /></div>
-          <div className="field"><label>Edition label</label><input value={edition} onChange={(e) => setEdition(e.target.value)} /></div>
-          <div className="field"><label>Academic year <span className="ex">e.g. 2026–2027</span></label><input value={academicYear} onChange={(e) => setAcademicYear(e.target.value)} /></div>
-        </div>
-        <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 14 }}>
-          <input type="checkbox" style={{ width: 'auto' }} checked={active} onChange={(e) => setActive(e.target.checked)} />
-          Published (uncheck to take this code offline)
-        </label>
-        {err && <p style={{ color: 'var(--danger)', fontSize: 14 }}>{err}</p>}
-        <div className="row" style={{ marginTop: 14 }}>
-          <button className="btn" disabled={busy} onClick={saveDetails}>Save details</button>
-          <button className="btn danger" disabled={busy} onClick={remove}>Delete location</button>
-        </div>
-      </div>
-
-      <div className="card">
-        <h3>Campus details</h3>
-        <p className="hint">These values fill in the handbook for this campus. {missing.length === 0
-          ? <span className="badge ok">all fields set</span>
-          : <span className="badge warn">{missing.length} still to fill in</span>}
-        </p>
-        {groups.map((g) => (
-          <div key={g.name} style={{ marginBottom: 18 }}>
-            <h4 style={{ margin: '10px 0 8px', fontSize: 14 }}>{g.name}</h4>
-            {g.fields.map((f) => {
-              const isMissing = usedKeys.has(f.key) && (!fields[f.key] || String(fields[f.key]).trim() === '');
-              return (
-                <div className="field" key={f.key}>
-                  <label>
-                    {f.label} {isMissing && <span className="badge warn">needed</span>}
-                    {f.example && <span className="ex"> — e.g. {f.example.split('\n')[0]}</span>}
-                  </label>
-                  {f.multiline
-                    ? <textarea style={{ minHeight: 70 }} value={fields[f.key] || ''} onChange={(e) => setFields({ ...fields, [f.key]: e.target.value })} />
-                    : <input value={fields[f.key] || ''} onChange={(e) => setFields({ ...fields, [f.key]: e.target.value })} />}
-                </div>
-              );
-            })}
+      {superUser && (
+        <div className="card">
+          <h3>{location.name} <span className="muted mono" style={{ fontSize: 14 }}>· {location.code}</span></h3>
+          <p className="hint">
+            Opens at <a href={`/?code=${location.code}`} target="_blank" rel="noreferrer">/?code={location.code}</a>
+          </p>
+          <div className="row">
+            <div className="field"><label>Campus name</label><input value={name} onChange={(e) => setName(e.target.value)} /></div>
+            <div className="field"><label>Code</label><input className="mono" value={code} onChange={(e) => setCode(e.target.value)} /></div>
+            <div className="field"><label>Edition label</label><input value={edition} onChange={(e) => setEdition(e.target.value)} /></div>
+            <div className="field"><label>Academic year <span className="ex">e.g. 2026–2027</span></label><input value={academicYear} onChange={(e) => setAcademicYear(e.target.value)} /></div>
           </div>
-        ))}
-        <button className="btn" disabled={busy} onClick={saveFields}>Save campus details</button>
-      </div>
+          <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 14 }}>
+            <input type="checkbox" style={{ width: 'auto' }} checked={active} onChange={(e) => setActive(e.target.checked)} />
+            Published (uncheck to take this code offline)
+          </label>
+          {err && <p style={{ color: 'var(--danger)', fontSize: 14 }}>{err}</p>}
+          <div className="row" style={{ marginTop: 14 }}>
+            <button className="btn" disabled={busy} onClick={saveDetails}>Save details</button>
+            <button className="btn danger" disabled={busy} onClick={remove}>Delete location</button>
+          </div>
+        </div>
+      )}
+
+      {superUser && (
+        <div className="card">
+          <h3>Campus details</h3>
+          <p className="hint">These values fill in the handbook for this campus. {missing.length === 0
+            ? <span className="badge ok">all fields set</span>
+            : <span className="badge warn">{missing.length} still to fill in</span>}
+          </p>
+          {groups.map((g) => (
+            <div key={g.name} style={{ marginBottom: 18 }}>
+              <h4 style={{ margin: '10px 0 8px', fontSize: 14 }}>{g.name}</h4>
+              {g.fields.map((f) => {
+                const isMissing = usedKeys.has(f.key) && (!fields[f.key] || String(fields[f.key]).trim() === '');
+                return (
+                  <div className="field" key={f.key}>
+                    <label>
+                      {f.label} {isMissing && <span className="badge warn">needed</span>}
+                      {f.example && <span className="ex"> — e.g. {f.example.split('\n')[0]}</span>}
+                    </label>
+                    {f.multiline
+                      ? <textarea style={{ minHeight: 70 }} value={fields[f.key] || ''} onChange={(e) => setFields({ ...fields, [f.key]: e.target.value })} />
+                      : <input value={fields[f.key] || ''} onChange={(e) => setFields({ ...fields, [f.key]: e.target.value })} />}
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+          <button className="btn" disabled={busy} onClick={saveFields}>Save campus details</button>
+        </div>
+      )}
+
+      {!superUser && (
+        <div className="card">
+          <h3>{location.name} <span className="muted mono" style={{ fontSize: 14 }}>· {location.code}</span></h3>
+          <p className="hint">Choose which sections show for your campus and edit their wording below. <a href={`/?code=${location.code}`} target="_blank" rel="noreferrer">View your handbook →</a></p>
+        </div>
+      )}
 
       <OverridesCard location={location} sections={sections} reload={reload} flash={flash} />
-      <CalendarEditorCard location={location} reload={reload} flash={flash} />
+      {superUser && <TemplateCard location={location} templates={templates} reload={reload} flash={flash} />}
+      {superUser && <CalendarEditorCard location={location} reload={reload} flash={flash} />}
     </>
+  );
+}
+
+function TemplateCard({ location, templates = [], reload, flash }) {
+  const [tpl, setTpl] = useState(location.calendar_template || '');
+  const [busy, setBusy] = useState(false);
+
+  async function apply(applyDates) {
+    setBusy(true);
+    try {
+      await api('PATCH', `/api/admin/locations/${location.id}`, { calendar_template: tpl, applyTemplate: applyDates });
+      flash(applyDates ? 'Template dates applied' : 'Template label saved');
+      await reload();
+    } finally { setBusy(false); }
+  }
+
+  return (
+    <div className="card">
+      <h3>Calendar template</h3>
+      <p className="hint">Pick the shared calendar this campus follows. “Apply dates” copies that template&apos;s sessions and dates into this campus (you can still tweak them afterward).</p>
+      <div className="row">
+        <div className="field" style={{ flex: 1 }}>
+          <label>Template</label>
+          <select value={tpl} onChange={(e) => setTpl(e.target.value)}>
+            <option value="">— none —</option>
+            {templates.map((t) => <option key={t.key} value={t.key}>{t.name} — {t.description}</option>)}
+          </select>
+        </div>
+        <button className="btn" disabled={busy || !tpl} onClick={() => apply(true)}>Apply dates</button>
+        <button className="btn ghost" disabled={busy} onClick={() => apply(false)}>Save label only</button>
+      </div>
+    </div>
   );
 }
 
@@ -510,16 +575,26 @@ function SectionEditor({ section, reload, flash }) {
 
 /* ─────────────────────────── Editors ─────────────────────────── */
 function EditorsTab({ data, reload, flash, editorEmail }) {
-  const { editors } = data;
+  const { editors, locations } = data;
   const [email, setEmail] = useState('');
+  const [role, setRole] = useState('location');
+  const [campuses, setCampuses] = useState([]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
+
+  function toggleCampus(code) {
+    setCampuses((prev) => (prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]));
+  }
 
   async function add() {
     setBusy(true); setErr(null);
     try {
-      await api('POST', '/api/admin/editors', { email });
-      setEmail('');
+      await api('POST', '/api/admin/editors', {
+        email,
+        role,
+        locations: role === 'super' ? [] : campuses,
+      });
+      setEmail(''); setRole('location'); setCampuses([]);
       flash('Editor added');
       await reload();
     } catch (e) { setErr(e.message); } finally { setBusy(false); }
@@ -535,23 +610,70 @@ function EditorsTab({ data, reload, flash, editorEmail }) {
     } catch (e) { setErr(e.message); } finally { setBusy(false); }
   }
 
+  const codeToName = Object.fromEntries((locations || []).map((l) => [l.code, l.name]));
+
+  function campusLabel(e) {
+    if (e.role === 'super') return null;
+    const codes = e.locations || [];
+    if (codes.length === 0) return 'no campus';
+    return codes.map((c) => codeToName[c] || c).join(', ');
+  }
+
   return (
     <div className="card">
       <h3>Editors</h3>
-      <p className="hint">Only these Google accounts can sign in to edit the handbook and manage locations.</p>
+      <p className="hint">
+        Only these Google accounts can sign in. <strong>Superadmins</strong> (like you, Tasha, Robbie) edit
+        global text, manage locations &amp; templates, and add editors across every campus. <strong>Campus
+        editors</strong> (DOPs) can only show/hide sections and override text for their assigned campus.
+      </p>
       {editors.map((e) => (
         <div className="list-row" key={e.email}>
-          <span className="grow">{e.email} {e.email === editorEmail && <span className="badge ok">you</span>}</span>
+          <span className="grow">
+            {e.email} {e.email === editorEmail && <span className="badge ok">you</span>}{' '}
+            <span className={`badge ${e.role === 'super' ? 'ok' : 'edit'}`}>
+              {e.role === 'super' ? 'Superadmin' : 'Campus editor'}
+            </span>
+            {campusLabel(e) && <span className="muted" style={{ fontSize: 12, marginLeft: 8 }}>{campusLabel(e)}</span>}
+          </span>
           <span className="muted" style={{ fontSize: 12 }}>{e.added_by ? `added by ${e.added_by}` : ''}</span>
           {e.email !== editorEmail && <button className="btn ghost small" onClick={() => remove(e.email)}>Remove</button>}
         </div>
       ))}
-      <div className="row" style={{ marginTop: 16 }}>
-        <div className="field" style={{ flex: 1 }}>
+
+      <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--line)' }}>
+        <div className="field">
           <label>Add an editor by email</label>
           <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@alpha.school" />
         </div>
-        <button className="btn" disabled={busy} onClick={add}>Add editor</button>
+        <div className="field">
+          <label>Role</label>
+          <div className="row" style={{ gap: 16 }}>
+            <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 14 }}>
+              <input type="radio" name="role" style={{ width: 'auto' }} checked={role === 'location'} onChange={() => setRole('location')} />
+              Campus editor (DOP)
+            </label>
+            <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 14 }}>
+              <input type="radio" name="role" style={{ width: 'auto' }} checked={role === 'super'} onChange={() => setRole('super')} />
+              Superadmin
+            </label>
+          </div>
+        </div>
+        {role === 'location' && (
+          <div className="field">
+            <label>Assigned campuses <span className="ex">campus editors can only edit these</span></label>
+            {(locations || []).length === 0 && <p className="muted" style={{ fontSize: 13 }}>No locations yet.</p>}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+              {(locations || []).map((l) => (
+                <label key={l.code} style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 14 }}>
+                  <input type="checkbox" style={{ width: 'auto' }} checked={campuses.includes(l.code)} onChange={() => toggleCampus(l.code)} />
+                  {l.name}
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
+        <button className="btn" disabled={busy} onClick={add} style={{ marginTop: 4 }}>Add editor</button>
       </div>
       {err && <p style={{ color: 'var(--danger)', fontSize: 14 }}>{err}</p>}
     </div>
