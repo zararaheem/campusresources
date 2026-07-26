@@ -400,19 +400,45 @@ textarea { min-height: 120px; resize: vertical; line-height: 1.5; font-size: 14p
 .code-form { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
 
 /* ── Print / PDF ──────────────────────────────────────────── */
+/* Print / PDF — mimic the on-screen branded design (navy hero, cream page,
+   gold accents, serif headings, white cards). Colors are forced on so the
+   saved PDF looks like the site, not a stripped black-and-white page. */
 @media print {
-  body { background: #fff; color: #000; }
-  .toolbar, .toc, .chat-fab, .chat-panel, .search-wrap, .no-print { display: none !important; }
-  .hero { background: #fff !important; color: #000; text-align: left; padding: 0 0 12px; border-bottom: 2px solid var(--gold); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .hero .alpha-logo { color: #000; justify-content: flex-start; }
-  .hero .eyebrow { color: #000; }
-  .hero h1 { color: #000; font-size: 30px; }
-  .hero .sub, .pill { color: #000 !important; }
-  .pill { border: 1px solid #999; background: #fff; }
-  .wrap { max-width: 100%; padding: 0; }
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  @page { margin: 14mm; }
+
+  html, body { background: var(--cream) !important; color: var(--ink) !important; }
+
+  /* Hide interactive chrome only. */
+  .toolbar, .toc, .chat-fab, .chat-panel, .search-wrap, .cal-add,
+  .cal-toggle, .comingup .cal-add, .no-print { display: none !important; }
+
+  /* Keep the navy hero, just tightened for paper. */
+  .hero { background: var(--navy) !important; color: #fff !important; padding: 26px 30px !important; break-inside: avoid; }
+  .hero .alpha-logo { color: #fff; }
+  .hero .eyebrow { color: var(--gold) !important; }
+  .hero h1 { color: #fff !important; }
+  .hero .sub { color: rgba(255,255,255,0.85) !important; }
+  .pill { color: #fff !important; }
+  .pill.gold { background: var(--gold) !important; color: #2a2000 !important; }
+
+  /* Full-width body, keep the cream page + white cards. */
+  .wrap { max-width: 100% !important; padding: 18px 6px !important; }
   .grid { display: block; }
-  .section { break-inside: avoid; box-shadow: none; border: none; border-bottom: 1px solid #ddd; border-radius: 0; background: #fff; padding: 14px 0; }
-  .section-group-title { font-size: 22px; }
-  .prose a { color: #000; }
+
+  .section {
+    break-inside: avoid; background: #fff !important;
+    border: 1px solid var(--line) !important; border-radius: var(--radius) !important;
+    box-shadow: none !important; padding: 18px 22px !important; margin-bottom: 14px !important;
+  }
+  .section-group-title { color: var(--navy) !important; }
+  .prose a { color: var(--gold-deep) !important; }
   a[href]::after { content: ''; }
+
+  /* Calendar: keep the color-coded month grids + key dates. */
+  .mgrid, .keydates, .cal-key, .comingup {
+    break-inside: avoid; box-shadow: none !important; border: 1px solid var(--line) !important;
+  }
+  .comingup { background: var(--navy) !important; color: #fff !important; }
+  .mgrid-row { display: flex !important; flex-wrap: wrap !important; }
 }

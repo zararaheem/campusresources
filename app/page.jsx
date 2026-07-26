@@ -89,7 +89,7 @@ export default async function Page({ searchParams }) {
           <SearchBar index={searchIndex} />
           <span className="spacer" />
           {hasCalendar && <a className="pill-btn solid" href={`/calendar?code=${location.code}`}>📅 Calendar</a>}
-          <PrintButton className="pill-btn" label="Download as PDF ↓" />
+          <PrintButton className="pill-btn" label="Download as PDF" />
         </div>
 
         <div className="grid">
