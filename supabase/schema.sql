@@ -37,9 +37,14 @@ create table if not exists locations (
 -- Google accounts allowed to sign in and edit.
 create table if not exists editors (
   email       text primary key,
+  role        text not null default 'location',   -- 'super' or 'location'
+  locations   jsonb not null default '[]'::jsonb,  -- campus codes a location editor can edit
   added_by    text,
   created_at  timestamptz not null default now()
 );
+-- If the editors table predates roles, add the columns:
+alter table editors add column if not exists role      text not null default 'location';
+alter table editors add column if not exists locations jsonb not null default '[]'::jsonb;
 
 create index if not exists locations_active_code_idx on locations (code) where is_active;
 
