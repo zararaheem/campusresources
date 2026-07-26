@@ -121,7 +121,10 @@ a { color: var(--gold-deep); }
 /* ── Grid + ON THIS PAGE ──────────────────────────────────── */
 .grid { display: grid; grid-template-columns: 232px 1fr; gap: 34px; align-items: start; }
 @media (max-width: 880px) { .grid { grid-template-columns: 1fr; } }
-.toc { position: sticky; top: 18px; max-height: calc(100vh - 36px); overflow-y: auto; padding-right: 6px; }
+.toc { position: sticky; top: 18px; max-height: calc(100vh - 36px); overflow-y: auto; overscroll-behavior: contain; padding-right: 8px; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+.toc::-webkit-scrollbar { width: 7px; }
+.toc::-webkit-scrollbar-thumb { background: #d9d0bd; border-radius: 4px; }
+.toc::-webkit-scrollbar-track { background: transparent; }
 .toc-label {
   text-transform: uppercase; letter-spacing: 0.14em; font-size: 11.5px; font-weight: 700;
   color: var(--ink-mute); margin: 0 0 12px;
