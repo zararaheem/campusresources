@@ -411,9 +411,17 @@ textarea { min-height: 120px; resize: vertical; line-height: 1.5; font-size: 14p
 
 @media print {
   * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-  /* No side margins → the cream page + navy hero fill the sheet edge-to-edge
-     (small top/bottom only, so pagination breathes). */
-  @page { margin: 6mm 0; }
+  /* Page margins + a page number in the bottom-right of every page. */
+  @page {
+    margin: 14mm 13mm 16mm;
+    @bottom-right {
+      content: 'Page ' counter(page) ' of ' counter(pages);
+      font-size: 8.5pt;
+      color: #66748a;
+    }
+  }
+  /* No page number on the cover. */
+  @page :first { @bottom-right { content: ''; } }
 
   html, body { background: var(--cream) !important; color: var(--ink) !important; font-size: 11px !important; }
 
@@ -487,8 +495,10 @@ textarea { min-height: 120px; resize: vertical; line-height: 1.5; font-size: 14p
     border: 1px solid var(--line) !important; border-radius: 8px !important;
     box-shadow: none !important; padding: 10px 14px !important; margin-bottom: 8px !important;
   }
-  .section-group-title { color: var(--navy) !important; font-size: 15px !important; margin: 8px 2px 5px !important; }
-  .section > h2 { font-size: 14px !important; margin: 0 0 5px !important; }
+  /* Keep a group header with its first section — never orphan it at a page
+     bottom; if there's no room, it moves to the next page. */
+  .section-group-title { color: var(--navy) !important; font-size: 15px !important; margin: 8px 2px 5px !important; break-after: avoid !important; break-inside: avoid !important; }
+  .section > h2 { font-size: 14px !important; margin: 0 0 5px !important; break-after: avoid !important; }
   .prose, .prose p, .prose li { font-size: 10.5px !important; line-height: 1.45 !important; }
   .prose p { margin: 0 0 7px !important; }
   .prose li { margin: 2px 0 !important; }
