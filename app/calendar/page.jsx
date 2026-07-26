@@ -1,0 +1,71 @@
+import { getStore } from '@/lib/store';
+import { DownloadYearIcs } from '../components/AddToCalendar';
+import CalendarView from '../components/CalendarView';
+import PrintButton from '../components/PrintButton';
+import AlphaLogo from '../components/AlphaLogo';
+
+export const dynamic = 'force-dynamic';
+
+function Missing({ code, message }) {
+  return (
+    <div className="landing">
+      <div className="landing-inner">
+        <AlphaLogo size={26} />
+        <p className="campus-tag">Campus Resources</p>
+        <div className="access-card">
+          <h2>{message}</h2>
+          <a className="btn gold" href={code ? `/?code=${code}` : '/'} style={{ marginTop: 8 }}>← Back to handbook</a>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default async function CalendarPage({ searchParams }) {
+  const sp = await searchParams;
+  const code = (sp?.code || '').trim();
+  if (!code) return <Missing code="" message="Enter a campus code first" />;
+
+  const store = getStore();
+  const location = await store.getLocationByCode(code);
+  if (!location) return <Missing code="" message="Code not found" />;
+
+  const events = Array.isArray(location.calendar) ? location.calendar : [];
+  const sessions = Array.isArray(location.sessions) ? location.sessions : [];
+  if (events.length === 0) return <Missing code={location.code} message="No calendar set for this campus yet" />;
+
+  const addr = location.fields?.address;
+  const cityLabel = location.fields?.city || location.name;
+  const yearLabel = location.academic_year ? `${location.academic_year} Academic Calendar` : 'Academic Calendar';
+  const calName = `Alpha ${location.name} ${location.academic_year || ''}`.trim();
+
+  return (
+    <>
+      <header className="hero">
+        <div className="hero-inner">
+          <AlphaLogo size={24} />
+          <p className="eyebrow">Alpha {cityLabel} · Academic Calendar</p>
+          <h1>{yearLabel}</h1>
+          <p className="sub">Everything for the school year at a glance. Tap any key date to add it to your Google or Apple calendar.</p>
+          <div className="pills">
+            <span className="pill gold">{location.academic_year || 'Living Edition'}</span>
+            <span className="pill">{location.code}</span>
+          </div>
+        </div>
+      </header>
+
+      <div className="wrap" style={{ maxWidth: 940 }}>
+        <div className="toolbar">
+          <a className="pill-btn" href={`/?code=${location.code}`}>← Handbook</a>
+          <span className="spacer" />
+          <DownloadYearIcs events={events} location={addr} calName={calName} className="pill-btn solid" />
+          <PrintButton className="pill-btn" label="Download as PDF ↓" />
+        </div>
+
+        <CalendarView sessions={sessions} events={events} addr={addr} calName={calName} />
+
+        <p className="foot">Alpha {location.name} · {yearLabel} · Dates are subject to change; check ParentSquare for updates.</p>
+      </div>
+    </>
+  );
+}

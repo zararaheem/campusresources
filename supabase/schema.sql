@@ -23,19 +23,28 @@ create table if not exists locations (
   code        text unique not null,
   name        text not null default '',
   edition     text not null default '',
-  is_active   boolean not null default true,
-  fields      jsonb not null default '{}'::jsonb,
-  overrides   jsonb not null default '{}'::jsonb,
-  created_at  timestamptz not null default now(),
-  updated_at  timestamptz not null default now()
+  is_active     boolean not null default true,
+  fields        jsonb not null default '{}'::jsonb,
+  overrides     jsonb not null default '{}'::jsonb,
+  academic_year     text not null default '',
+  calendar          jsonb not null default '[]'::jsonb,
+  sessions          jsonb not null default '[]'::jsonb,
+  calendar_template text not null default '',
+  created_at    timestamptz not null default now(),
+  updated_at    timestamptz not null default now()
 );
 
 -- Google accounts allowed to sign in and edit.
 create table if not exists editors (
   email       text primary key,
+  role        text not null default 'location',   -- 'super' or 'location'
+  locations   jsonb not null default '[]'::jsonb,  -- campus codes a location editor can edit
   added_by    text,
   created_at  timestamptz not null default now()
 );
+-- If the editors table predates roles, add the columns:
+alter table editors add column if not exists role      text not null default 'location';
+alter table editors add column if not exists locations jsonb not null default '[]'::jsonb;
 
 create index if not exists locations_active_code_idx on locations (code) where is_active;
 

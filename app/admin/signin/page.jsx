@@ -11,16 +11,22 @@ export default async function SignInPage({ searchParams }) {
   if (session?.user?.email) redirect('/admin');
 
   const error = (await searchParams)?.error;
+  const errorMsg =
+    error === 'AccessDenied'
+      ? "That account isn't on the editor list. Ask an existing editor to add you."
+      : error === 'Configuration'
+        ? 'Sign-in isn’t configured yet. An admin needs to set AUTH_SECRET and the Google credentials (AUTH_GOOGLE_ID / AUTH_GOOGLE_SECRET) in Vercel.'
+        : error
+          ? 'Something went wrong signing in. Please try again.'
+          : null;
 
   return (
     <div className="shell">
       <div className="center-card signin-wrap">
         <h1>Handbook Editor</h1>
         <p>Sign in with your approved Google account to edit the handbook.</p>
-        {error && (
-          <p style={{ color: 'var(--danger)', fontSize: 14 }}>
-            That account isn&apos;t on the editor list. Ask an existing editor to add you.
-          </p>
+        {errorMsg && (
+          <p style={{ color: 'var(--danger)', fontSize: 14 }}>{errorMsg}</p>
         )}
         <form
           action={async () => {
