@@ -5,6 +5,7 @@ import AlphaLogo from './components/AlphaLogo';
 import SearchBar from './components/SearchBar';
 import AskAI from './components/AskAI';
 import PrintButton from './components/PrintButton';
+import SignForm from './components/SignForm';
 
 export const dynamic = 'force-dynamic';
 
@@ -72,7 +73,7 @@ export default async function Page({ searchParams }) {
     <>
       <header className="hero">
         <div className="hero-inner">
-          <AlphaLogo size={24} />
+          <AlphaLogo size={38} />
           <p className="eyebrow">Alpha Campus Handbook · {cityLabel} · {editionLabel}</p>
           <h1>{location.name} Campus Handbook</h1>
           <p className="sub">Everything families need to know, all in one place.</p>
@@ -86,7 +87,7 @@ export default async function Page({ searchParams }) {
         {/* Full-page cover — only rendered in the printed / PDF version. */}
         <div className="print-cover" aria-hidden="true">
           <div className="pc-center">
-            <AlphaLogo size={52} />
+            <AlphaLogo size={72} />
             <div className="pc-title">Campus Handbook</div>
             <div className="pc-city">{cityLabel}</div>
             <div className="pc-edition">{editionLabel}</div>
@@ -127,6 +128,7 @@ export default async function Page({ searchParams }) {
                   <section key={s.key} id={s.key} className="section">
                     <h2>{s.title}</h2>
                     <div className="prose" dangerouslySetInnerHTML={{ __html: renderMarkdown(s.body) }} />
+                    {s.signable && <SignForm code={location.code} sectionKey={s.key} sectionTitle={s.title} />}
                   </section>
                 ))}
               </div>
