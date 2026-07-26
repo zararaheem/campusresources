@@ -62,7 +62,7 @@ export default async function CalendarPage({ searchParams }) {
           <PrintButton className="pill-btn" label="Download as PDF" />
         </div>
 
-        <CalendarView sessions={sessions} events={events} addr={addr} calName={calName} />
+        <CalendarView sessions={sessions} events={events} addr={addr} calName={calName} cityLabel={cityLabel} academicYear={location.academic_year} />
 
         <p className="foot">Alpha {location.name} · {yearLabel} · Dates are subject to change; check ParentSquare for updates.</p>
       </div>
