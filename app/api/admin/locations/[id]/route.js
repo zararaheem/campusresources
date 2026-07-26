@@ -24,6 +24,12 @@ export async function PATCH(req, { params }) {
     }
     patch.calendar = body.calendar;
   }
+  if (body.sessions !== undefined) {
+    if (!Array.isArray(body.sessions)) {
+      return NextResponse.json({ error: 'Sessions must be a list.' }, { status: 400 });
+    }
+    patch.sessions = body.sessions;
+  }
   if (body.code !== undefined) {
     const code = String(body.code).trim().toLowerCase();
     if (!CODE_RE.test(code)) {

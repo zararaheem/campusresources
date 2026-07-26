@@ -26,8 +26,10 @@ create table if not exists locations (
   is_active     boolean not null default true,
   fields        jsonb not null default '{}'::jsonb,
   overrides     jsonb not null default '{}'::jsonb,
-  academic_year text not null default '',
-  calendar      jsonb not null default '[]'::jsonb,
+  academic_year     text not null default '',
+  calendar          jsonb not null default '[]'::jsonb,
+  sessions          jsonb not null default '[]'::jsonb,
+  calendar_template text not null default '',
   created_at    timestamptz not null default now(),
   updated_at    timestamptz not null default now()
 );
