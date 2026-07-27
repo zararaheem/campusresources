@@ -91,7 +91,7 @@ export default function AdminApp({ editorEmail, dev, signOutAction }) {
       <div className="admin-wrap">
         <div className="tabs">
           <button className={`tab ${activeTab === 'locations' ? 'active' : ''}`} onClick={() => setTab('locations')}>Locations</button>
-          {superUser && <button className={`tab ${activeTab === 'sections' ? 'active' : ''}`} onClick={() => setTab('sections')}>Default Handbook</button>}
+          {superUser && <button className={`tab ${activeTab === 'sections' ? 'active' : ''}`} onClick={() => setTab('sections')}>Shared handbook</button>}
           <button className={`tab ${activeTab === 'signatures' ? 'active' : ''}`} onClick={() => setTab('signatures')}>Signed forms</button>
           {superUser && <button className={`tab ${activeTab === 'editors' ? 'active' : ''}`} onClick={() => setTab('editors')}>Editors</button>}
         </div>
@@ -143,11 +143,11 @@ function LocationsTab({ data, reload, flash, superUser }) {
         </div>
       </div>
 
-      {creating && superUser && <NewLocationCard fieldDefs={fieldDefs} locations={locations} templates={templates} onDone={async (id) => { await reload(); setSelectedId(id); setCreating(false); }} onCancel={() => setCreating(false)} flash={flash} />}
-
-      {!creating && selected && (
+      {selected && (
         <LocationEditor key={selected.id} location={selected} fieldDefs={fieldDefs} sections={sections} templates={templates} reload={reload} flash={flash} superUser={superUser} />
       )}
+
+      {creating && superUser && <NewLocationCard fieldDefs={fieldDefs} locations={locations} templates={templates} onDone={async (id) => { await reload(); setSelectedId(id); setCreating(false); }} onCancel={() => setCreating(false)} flash={flash} />}
     </>
   );
 }
@@ -167,7 +167,10 @@ function NewLocationCard({ fieldDefs, locations, templates = [], onDone, onCance
     try {
       const src = locations.find((l) => l.id === copyFrom);
       const fields = src ? { ...src.fields } : {};
-      const { location } = await api('POST', '/api/admin/locations', { code, name, edition, fields, calendar_template: template });
+      const effCode = (code || (name ? `${name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')}${edition ? '-' + edition.trim() : ''}` : '')).trim();
+      if (!name.trim()) { setErr('Campus name is required.'); setBusy(false); return; }
+      if (!effCode) { setErr('A web address is required.'); setBusy(false); return; }
+      const { location } = await api('POST', '/api/admin/locations', { code: effCode, name, edition, fields, calendar_template: template });
       flash('Location created');
       onDone(location.id);
     } catch (e) {
@@ -177,43 +180,53 @@ function NewLocationCard({ fieldDefs, locations, templates = [], onDone, onCance
     }
   }
 
+  const autoCode = code || (name ? `${name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')}${edition ? '-' + edition.trim() : ''}` : '');
+
   return (
-    <div className="card">
-      <h3>New location</h3>
-      <p className="hint">A location is one campus edition, opened with its code at <code>/?code=…</code></p>
-      <div className="row">
-        <div className="field">
-          <label>Code <span className="ex">e.g. austin-2026</span></label>
-          <input type="text" value={code} onChange={(e) => setCode(e.target.value)} placeholder="austin-2026" />
+    <div className="modal-overlay" role="dialog" aria-modal="true" onClick={onCancel}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-head">
+          <h3>Add a campus</h3>
+          <button className="modal-close" onClick={onCancel} aria-label="Close">×</button>
         </div>
-        <div className="field">
-          <label>Campus name <span className="ex">e.g. Austin</span></label>
-          <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Austin" />
+        <div className="modal-body">
+          <p className="hint">Fill in a few basics and we&apos;ll set up the new campus handbook. You can fine-tune everything afterward.</p>
+          <div className="row">
+            <div className="field" style={{ flex: 2 }}>
+              <label>Campus name <span className="ex">e.g. Austin</span></label>
+              <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Austin" autoFocus />
+            </div>
+            <div className="field">
+              <label>Year <span className="ex">e.g. 2026</span></label>
+              <input type="text" value={edition} onChange={(e) => setEdition(e.target.value)} placeholder="2026" />
+            </div>
+          </div>
+          <div className="field">
+            <label>Web address <span className="ex">the link families use — edit if you like</span></label>
+            <input type="text" className="mono" value={code || autoCode} onChange={(e) => setCode(e.target.value)} placeholder="austin-2026" />
+            <p className="hint" style={{ margin: '6px 0 0' }}>Opens at <code>/?code={autoCode || 'campus-2026'}</code></p>
+          </div>
+          <div className="row">
+            <div className="field">
+              <label>Calendar <span className="ex">which shared calendar it follows</span></label>
+              <select value={template} onChange={(e) => setTemplate(e.target.value)}>
+                {templates.map((t) => <option key={t.key} value={t.key}>{t.name} — {t.description}</option>)}
+              </select>
+            </div>
+            <div className="field">
+              <label>Copy details from <span className="ex">optional starting point</span></label>
+              <select value={copyFrom} onChange={(e) => setCopyFrom(e.target.value)}>
+                <option value="">Start blank</option>
+                {locations.map((l) => <option key={l.id} value={l.id}>{l.name} — {l.code}</option>)}
+              </select>
+            </div>
+          </div>
+          {err && <p style={{ color: 'var(--danger)', fontSize: 14 }}>{err}</p>}
+          <div className="row" style={{ marginTop: 6 }}>
+            <button className="btn" disabled={busy} onClick={create}>{busy ? 'Creating…' : 'Create campus'}</button>
+            <button className="btn ghost" onClick={onCancel}>Cancel</button>
+          </div>
         </div>
-        <div className="field">
-          <label>Edition label <span className="ex">e.g. 2026</span></label>
-          <input type="text" value={edition} onChange={(e) => setEdition(e.target.value)} placeholder="2026" />
-        </div>
-      </div>
-      <div className="row">
-        <div className="field">
-          <label>Calendar template <span className="ex">applies that calendar&apos;s dates</span></label>
-          <select value={template} onChange={(e) => setTemplate(e.target.value)}>
-            {templates.map((t) => <option key={t.key} value={t.key}>{t.name} — {t.description}</option>)}
-          </select>
-        </div>
-        <div className="field">
-          <label>Start from <span className="ex">optional — copy field values</span></label>
-          <select value={copyFrom} onChange={(e) => setCopyFrom(e.target.value)}>
-            <option value="">Blank (fill in fresh)</option>
-            {locations.map((l) => <option key={l.id} value={l.id}>{l.name} — {l.code}</option>)}
-          </select>
-        </div>
-      </div>
-      {err && <p style={{ color: 'var(--danger)', fontSize: 14 }}>{err}</p>}
-      <div className="row">
-        <button className="btn" disabled={busy} onClick={create}>Create location</button>
-        <button className="btn ghost" onClick={onCancel}>Cancel</button>
       </div>
     </div>
   );
@@ -348,16 +361,39 @@ function LocationEditor({ location, fieldDefs, sections, templates = [], reload,
 function SectionsCard({ location, reload, flash }) {
   const list = Array.isArray(location.extra_sections) ? location.extra_sections : [];
   const [adding, setAdding] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  async function move(index, dir) {
+    const j = index + dir;
+    if (j < 0 || j >= list.length || busy) return;
+    const order = list.map((s) => s.key);
+    [order[index], order[j]] = [order[j], order[index]];
+    setBusy(true);
+    try {
+      await api('POST', `/api/admin/locations/${location.id}/sections`, { reorder: order });
+      await reload();
+    } catch (e) { flash(e.message); } finally { setBusy(false); }
+  }
+
   return (
     <div className="card">
       <h3>Campus sections</h3>
       <p className="hint">
-        Add sections that appear only on <strong>{location.name}</strong>&apos;s handbook (e.g. state-specific
-        policies). They show at the end of whichever group you name (default <code>Policies</code>).
+        Sections that appear only on <strong>{location.name}</strong>&apos;s handbook (e.g. state-specific
+        policies). They show at the end of whichever group you name (default <code>Policies</code>). Use the
+        arrows to reorder them.
       </p>
       {list.length === 0 && <p className="muted" style={{ fontSize: 14 }}>No campus-specific sections yet.</p>}
-      {list.map((s) => (
-        <ExtraSectionRow key={s.key} location={location} section={s} reload={reload} flash={flash} />
+      {list.map((s, i) => (
+        <ExtraSectionRow
+          key={s.key}
+          location={location}
+          section={s}
+          reload={reload}
+          flash={flash}
+          onMoveUp={i > 0 ? () => move(i, -1) : null}
+          onMoveDown={i < list.length - 1 ? () => move(i, 1) : null}
+        />
       ))}
       {adding ? (
         <ExtraSectionRow location={location} section={null} reload={reload} flash={flash} onDone={() => setAdding(false)} />
@@ -368,7 +404,7 @@ function SectionsCard({ location, reload, flash }) {
   );
 }
 
-function ExtraSectionRow({ location, section, reload, flash, onDone }) {
+function ExtraSectionRow({ location, section, reload, flash, onDone, onMoveUp, onMoveDown }) {
   const isNew = !section;
   const [open, setOpen] = useState(isNew);
   const [title, setTitle] = useState(section?.title || '');
@@ -401,6 +437,12 @@ function ExtraSectionRow({ location, section, reload, flash, onDone }) {
   if (!isNew && !open) {
     return (
       <div className="list-row">
+        {(onMoveUp || onMoveDown) && (
+          <span className="reorder">
+            <button onClick={onMoveUp} disabled={!onMoveUp} aria-label="Move up">▲</button>
+            <button onClick={onMoveDown} disabled={!onMoveDown} aria-label="Move down">▼</button>
+          </span>
+        )}
         <span className="grow"><strong>{section.title}</strong> <span className="muted" style={{ fontSize: 12 }}>· {section.group || 'Policies'}</span></span>
         <button className="btn ghost small" onClick={() => setOpen(true)}>Edit</button>
         <button className="btn ghost small" onClick={remove}>Remove</button>
@@ -414,7 +456,7 @@ function ExtraSectionRow({ location, section, reload, flash, onDone }) {
         <div className="field" style={{ flex: 2 }}><label>Title</label><input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Standardized Testing" /></div>
         <div className="field" style={{ flex: 1 }}><label>Group <span className="ex">where it appears</span></label><input value={group} onChange={(e) => setGroup(e.target.value)} placeholder="Policies" /></div>
       </div>
-      <div className="field"><label>Body (Markdown)</label><textarea style={{ minHeight: 130 }} value={body} onChange={(e) => setBody(e.target.value)} placeholder="Write the section content…" /></div>
+      <div className="field"><label>Content <span className="ex">formatting: **bold**, - bullet, ### subheading</span></label><textarea style={{ minHeight: 130 }} value={body} onChange={(e) => setBody(e.target.value)} placeholder="Write the section content…" /></div>
       {err && <p style={{ color: 'var(--danger)', fontSize: 14 }}>{err}</p>}
       <div className="row">
         <button className="btn" disabled={busy} onClick={save}>{isNew ? 'Add section' : 'Save section'}</button>
@@ -510,10 +552,10 @@ function OverridesCard({ location, sections, reload, flash }) {
 
   return (
     <div className="card">
-      <h3>Section overrides</h3>
+      <h3>Handbook sections</h3>
       <p className="hint">
-        Every campus shares the default handbook. Override a section only when this campus needs
-        different wording. Cleared overrides fall back to the default.
+        Every campus shares the same handbook. Customize a section only when this campus needs different
+        wording — or hide one that doesn&apos;t apply. Anything you don&apos;t touch stays in sync with the shared version.
       </p>
       {sections.map((s) => {
         const ov = overrides[s.key] || {};
@@ -523,10 +565,10 @@ function OverridesCard({ location, sections, reload, flash }) {
             <div className="list-row">
               <span className="grow">
                 {s.title}{' '}
-                {ov.hidden ? <span className="badge warn">hidden here</span> : isOverridden ? <span className="badge edit">overridden</span> : null}
+                {ov.hidden ? <span className="badge warn">hidden here</span> : isOverridden ? <span className="badge edit">customized</span> : null}
               </span>
               <button className="btn ghost small" onClick={() => setOpenKey(openKey === s.key ? null : s.key)}>
-                {openKey === s.key ? 'Close' : isOverridden ? 'Edit override' : 'Override'}
+                {openKey === s.key ? 'Close' : isOverridden ? 'Edit' : 'Customize'}
               </button>
             </div>
             {openKey === s.key && (
@@ -577,11 +619,11 @@ function OverrideEditor({ location, section, current, onSaved, flash }) {
   return (
     <div style={{ padding: '4px 0 16px' }}>
       <div className="field">
-        <label>Title override <span className="ex">leave blank to keep the default title</span></label>
+        <label>Title for this campus <span className="ex">leave blank to keep the shared title</span></label>
         <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={section.title} />
       </div>
       <div className="field section-editor">
-        <label>Body override (Markdown) <span className="ex">leave blank to keep the default body below</span></label>
+        <label>Content for this campus <span className="ex">leave blank to keep the shared wording shown below</span></label>
         <textarea value={body} onChange={(e) => setBody(e.target.value)} placeholder={section.body} />
       </div>
       <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 14, marginBottom: 12 }}>
@@ -589,8 +631,8 @@ function OverrideEditor({ location, section, current, onSaved, flash }) {
         Hide this section for {location.name}
       </label>
       <div className="row">
-        <button className="btn" disabled={busy} onClick={save}>Save override</button>
-        <button className="btn ghost" disabled={busy} onClick={clear}>Revert to default</button>
+        <button className="btn" disabled={busy} onClick={save}>Save for this campus</button>
+        <button className="btn ghost" disabled={busy} onClick={clear}>Reset to shared</button>
       </div>
     </div>
   );
@@ -599,29 +641,56 @@ function OverrideEditor({ location, section, current, onSaved, flash }) {
 /* ─────────────────────────── Default sections ─────────────────────────── */
 function SectionsTab({ data, reload, flash }) {
   const { sections, groups } = data;
+  const [busy, setBusy] = useState(false);
+
+  // Move a section up/down within its group by swapping positions with its
+  // neighbour, then persist both.
+  async function move(groupSections, index, dir) {
+    const j = index + dir;
+    if (j < 0 || j >= groupSections.length || busy) return;
+    const a = groupSections[index];
+    const b = groupSections[j];
+    setBusy(true);
+    try {
+      await api('PATCH', `/api/admin/sections/${a.key}`, { position: b.position });
+      await api('PATCH', `/api/admin/sections/${b.key}`, { position: a.position });
+      await reload();
+    } catch (e) { flash(e.message); } finally { setBusy(false); }
+  }
+
   return (
     <>
       <div className="card">
-        <h3>Default Handbook</h3>
+        <h3>Shared handbook</h3>
         <p className="hint">
-          This is the one handbook every campus shares. Edits here apply everywhere. Use
-          <code>{'{{field_key}}'}</code> placeholders for anything that differs by campus (they get
-          filled from each location&apos;s campus details).
+          The one handbook every campus starts from — edits here reach every campus (unless a campus customizes
+          a section for itself). Use the arrows to reorder sections; anything in <code>{'{{ }}'}</code> is a
+          campus detail that fills in automatically per campus.
         </p>
       </div>
-      {groups.map((groupName) => (
-        <div key={groupName}>
-          <h4 style={{ margin: '18px 4px 8px', color: 'var(--ink-soft)' }}>{groupName}</h4>
-          {sections.filter((s) => (s.group_name || '') === groupName).map((s) => (
-            <SectionEditor key={s.key} section={s} reload={reload} flash={flash} />
-          ))}
-        </div>
-      ))}
+      {groups.map((groupName) => {
+        const groupSections = sections.filter((s) => (s.group_name || '') === groupName);
+        return (
+          <div key={groupName}>
+            <div className="admin-group-title">{groupName}</div>
+            {groupSections.map((s, i) => (
+              <SectionEditor
+                key={s.key}
+                section={s}
+                reload={reload}
+                flash={flash}
+                onMoveUp={i > 0 ? () => move(groupSections, i, -1) : null}
+                onMoveDown={i < groupSections.length - 1 ? () => move(groupSections, i, 1) : null}
+              />
+            ))}
+          </div>
+        );
+      })}
     </>
   );
 }
 
-function SectionEditor({ section, reload, flash }) {
+function SectionEditor({ section, reload, flash, onMoveUp, onMoveDown }) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState(section.title);
   const [body, setBody] = useState(section.body);
@@ -638,15 +707,21 @@ function SectionEditor({ section, reload, flash }) {
   }
 
   return (
-    <div className="card">
-      <div className="list-row" style={{ borderBottom: open ? '1px solid var(--line)' : 'none', paddingBottom: open ? 12 : 0 }}>
-        <span className="grow"><strong>{section.title}</strong> <span className="muted mono" style={{ fontSize: 12 }}>{section.key}</span></span>
+    <div className="card" style={{ marginBottom: 10, padding: '14px 18px' }}>
+      <div className="list-row" style={{ padding: 0, borderBottom: open ? '1px solid var(--line)' : 'none', paddingBottom: open ? 12 : 0 }}>
+        {(onMoveUp || onMoveDown) && (
+          <span className="reorder">
+            <button onClick={onMoveUp} disabled={!onMoveUp} aria-label="Move up">▲</button>
+            <button onClick={onMoveDown} disabled={!onMoveDown} aria-label="Move down">▼</button>
+          </span>
+        )}
+        <span className="grow"><strong>{section.title}</strong></span>
         <button className="btn ghost small" onClick={() => setOpen(!open)}>{open ? 'Close' : 'Edit'}</button>
       </div>
       {open && (
         <div className="section-editor" style={{ paddingTop: 14 }}>
           <div className="field"><label>Title</label><input value={title} onChange={(e) => setTitle(e.target.value)} /></div>
-          <div className="field"><label>Body (Markdown)</label><textarea value={body} onChange={(e) => setBody(e.target.value)} /></div>
+          <div className="field"><label>Content <span className="ex">formatting: **bold**, - bullet, ### subheading</span></label><textarea value={body} onChange={(e) => setBody(e.target.value)} /></div>
           <button className="btn" disabled={busy} onClick={save}>Save section</button>
         </div>
       )}

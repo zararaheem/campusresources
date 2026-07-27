@@ -42,6 +42,12 @@ export async function PATCH(req, { params }) {
     }
     patch.sessions = body.sessions;
   }
+  if (body.extra_sections !== undefined) {
+    if (!Array.isArray(body.extra_sections)) {
+      return NextResponse.json({ error: 'Campus sections must be a list.' }, { status: 400 });
+    }
+    patch.extra_sections = body.extra_sections;
+  }
   if (body.code !== undefined) {
     const code = String(body.code).trim().toLowerCase();
     if (!CODE_RE.test(code)) {
