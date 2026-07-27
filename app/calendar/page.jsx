@@ -10,7 +10,7 @@ function Missing({ code, message }) {
   return (
     <div className="landing">
       <div className="landing-inner">
-        <AlphaLogo size={26} />
+        <AlphaLogo size={44} />
         <p className="campus-tag">Campus Resources</p>
         <div className="access-card">
           <h2>{message}</h2>
@@ -40,10 +40,10 @@ export default async function CalendarPage({ searchParams }) {
   const calName = `Alpha ${location.name} ${location.academic_year || ''}`.trim();
 
   return (
-    <>
+    <div className="cal-doc">
       <header className="hero">
         <div className="hero-inner">
-          <AlphaLogo size={24} />
+          <AlphaLogo size={44} />
           <p className="eyebrow">Alpha {cityLabel} · Academic Calendar</p>
           <h1>{yearLabel}</h1>
           <p className="sub">Everything for the school year at a glance. Tap any key date to add it to your Google or Apple calendar.</p>
@@ -66,6 +66,6 @@ export default async function CalendarPage({ searchParams }) {
 
         <p className="foot">Alpha {location.name} · {yearLabel} · Dates are subject to change; check ParentSquare for updates.</p>
       </div>
-    </>
+    </div>
   );
 }

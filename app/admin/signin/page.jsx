@@ -1,6 +1,7 @@
 import { signIn, auth } from '@/auth';
 import { redirect } from 'next/navigation';
 import AccessCodeForm from './AccessCodeForm';
+import { codeLoginEnabled } from '@/lib/auth-helpers';
 
 export const dynamic = 'force-dynamic';
 
@@ -38,7 +39,7 @@ export default async function SignInPage({ searchParams }) {
           <button className="btn" type="submit">Sign in with Google</button>
         </form>
 
-        <AccessCodeForm />
+        {codeLoginEnabled() && <AccessCodeForm />}
 
         <p className="foot" style={{ marginTop: 24 }}>
           <a href="/">← Back to handbook</a>

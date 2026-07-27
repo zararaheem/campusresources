@@ -21,7 +21,7 @@ function Landing({ code }) {
   return (
     <div className="landing">
       <div className="landing-inner">
-        <AlphaLogo size={46} />
+        <AlphaLogo size={58} />
         <p className="campus-tag">Campus Resources</p>
         <div className="access-card">
           <h2>Campus Handbook</h2>
@@ -47,7 +47,7 @@ export default async function Page({ searchParams }) {
     return (
       <div className="landing">
         <div className="landing-inner">
-          <AlphaLogo size={46} />
+          <AlphaLogo size={58} />
           <p className="campus-tag">Campus Resources</p>
           <div className="access-card">
             <h2>Code not found</h2>
@@ -73,7 +73,7 @@ export default async function Page({ searchParams }) {
     <>
       <header className="hero">
         <div className="hero-inner">
-          <AlphaLogo size={38} />
+          <AlphaLogo size={48} />
           <p className="eyebrow">Alpha Campus Handbook · {cityLabel} · {editionLabel}</p>
           <h1>{location.name} Campus Handbook</h1>
           <p className="sub">Everything families need to know, all in one place.</p>
