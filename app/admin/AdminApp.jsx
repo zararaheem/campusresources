@@ -79,11 +79,13 @@ export default function AdminApp({ editorEmail, dev, signOutAction }) {
           </span>
         )}
         <span className="spacer" />
-        <span className="muted" style={{ fontSize: 13 }}>{editorEmail}</span>
+        <span className="acct-email" title={editorEmail}>{editorEmail}</span>
         <a className="btn ghost small" href="/" target="_blank" rel="noreferrer">View site</a>
-        {!dev && (
+        {dev ? (
+          <span className="badge warn">dev bypass</span>
+        ) : (
           <form action={signOutAction}>
-            <button className="btn ghost small" type="submit">Sign out</button>
+            <button className="btn signout-btn small" type="submit">Sign out</button>
           </form>
         )}
       </div>
@@ -95,6 +97,13 @@ export default function AdminApp({ editorEmail, dev, signOutAction }) {
           <button className={`tab ${activeTab === 'signatures' ? 'active' : ''}`} onClick={() => setTab('signatures')}>Signed forms</button>
           {superUser && <button className={`tab ${activeTab === 'editors' ? 'active' : ''}`} onClick={() => setTab('editors')}>Editors</button>}
         </div>
+        {superUser && activeTab === 'locations' && (
+          <p className="hint" style={{ marginBottom: 16 }}>
+            <strong>Locations</strong> is where you edit one campus at a time — pick a campus, fill in its details,
+            and customize or hide sections for it. The <strong>Shared handbook</strong> tab is the master copy every
+            campus inherits.
+          </p>
+        )}
         {!superUser && (
           <p className="hint" style={{ marginBottom: 16 }}>
             You&apos;re a campus editor. Choose which sections appear for your campus and edit their wording —
@@ -116,7 +125,9 @@ export default function AdminApp({ editorEmail, dev, signOutAction }) {
 /* ─────────────────────────── Locations ─────────────────────────── */
 function LocationsTab({ data, reload, flash, superUser }) {
   const { locations, fieldDefs, sections, templates } = data;
-  const [selectedId, setSelectedId] = useState(locations[0]?.id || null);
+  // Don't auto-open a campus for superadmins — make them choose so it's clear
+  // which campus they're editing. A DOP with a single campus jumps straight in.
+  const [selectedId, setSelectedId] = useState(locations.length === 1 ? locations[0].id : '');
   const [creating, setCreating] = useState(false);
 
   const selected = locations.find((l) => l.id === selectedId) || null;
@@ -130,8 +141,9 @@ function LocationsTab({ data, reload, flash, superUser }) {
       <div className="card">
         <div className="row">
           <div className="field" style={{ flex: 1 }}>
-            <label>Campus</label>
+            <label>Which campus do you want to edit?</label>
             <select value={selectedId || ''} onChange={(e) => { setSelectedId(e.target.value); setCreating(false); }}>
+              <option value="">Choose a campus…</option>
               {locations.map((l) => (
                 <option key={l.id} value={l.id}>
                   {l.name} — {l.code}{l.is_active ? '' : ' (hidden)'}
@@ -139,9 +151,15 @@ function LocationsTab({ data, reload, flash, superUser }) {
               ))}
             </select>
           </div>
-          {superUser && <button className="btn" onClick={() => setCreating(true)}>+ New location</button>}
+          {superUser && <button className="btn" onClick={() => setCreating(true)}>+ Add a campus</button>}
         </div>
       </div>
+
+      {!selected && (
+        <div className="card" style={{ textAlign: 'center', color: 'var(--ink-soft)' }}>
+          <p style={{ margin: '8px 0' }}>Pick a campus above to edit its handbook, or add a new one.</p>
+        </div>
+      )}
 
       {selected && (
         <LocationEditor key={selected.id} location={selected} fieldDefs={fieldDefs} sections={sections} templates={templates} reload={reload} flash={flash} superUser={superUser} />
@@ -210,7 +228,7 @@ function NewLocationCard({ fieldDefs, locations, templates = [], onDone, onCance
             <div className="field">
               <label>Calendar <span className="ex">which shared calendar it follows</span></label>
               <select value={template} onChange={(e) => setTemplate(e.target.value)}>
-                {templates.map((t) => <option key={t.key} value={t.key}>{t.name} — {t.description}</option>)}
+                {templates.map((t) => <option key={t.key} value={t.key}>{t.name}</option>)}
               </select>
             </div>
             <div className="field">
@@ -361,18 +379,22 @@ function LocationEditor({ location, fieldDefs, sections, templates = [], reload,
 function SectionsCard({ location, reload, flash }) {
   const list = Array.isArray(location.extra_sections) ? location.extra_sections : [];
   const [adding, setAdding] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const [dragKey, setDragKey] = useState(null);
+  const [overKey, setOverKey] = useState(null);
 
-  async function move(index, dir) {
-    const j = index + dir;
-    if (j < 0 || j >= list.length || busy) return;
+  async function onDrop(targetKey) {
+    const from = list.findIndex((s) => s.key === dragKey);
+    const to = list.findIndex((s) => s.key === targetKey);
+    setDragKey(null); setOverKey(null);
+    if (from < 0 || to < 0 || from === to) return;
     const order = list.map((s) => s.key);
-    [order[index], order[j]] = [order[j], order[index]];
-    setBusy(true);
+    order.splice(from, 1);
+    order.splice(to, 0, dragKey);
     try {
       await api('POST', `/api/admin/locations/${location.id}/sections`, { reorder: order });
+      flash('Order saved');
       await reload();
-    } catch (e) { flash(e.message); } finally { setBusy(false); }
+    } catch (e) { flash(e.message); }
   }
 
   return (
@@ -380,19 +402,23 @@ function SectionsCard({ location, reload, flash }) {
       <h3>Campus sections</h3>
       <p className="hint">
         Sections that appear only on <strong>{location.name}</strong>&apos;s handbook (e.g. state-specific
-        policies). They show at the end of whichever group you name (default <code>Policies</code>). Use the
-        arrows to reorder them.
+        policies). They show at the end of whichever group you name (default <code>Policies</code>). Drag the
+        ⠿ handle to reorder them.
       </p>
       {list.length === 0 && <p className="muted" style={{ fontSize: 14 }}>No campus-specific sections yet.</p>}
-      {list.map((s, i) => (
+      {list.map((s) => (
         <ExtraSectionRow
           key={s.key}
           location={location}
           section={s}
           reload={reload}
           flash={flash}
-          onMoveUp={i > 0 ? () => move(i, -1) : null}
-          onMoveDown={i < list.length - 1 ? () => move(i, 1) : null}
+          dragging={dragKey === s.key}
+          dragOver={overKey === s.key && dragKey !== s.key}
+          onDragStart={() => setDragKey(s.key)}
+          onDragEnd={() => { setDragKey(null); setOverKey(null); }}
+          onDragOver={(e) => { e.preventDefault(); if (dragKey) setOverKey(s.key); }}
+          onDrop={() => onDrop(s.key)}
         />
       ))}
       {adding ? (
@@ -404,7 +430,7 @@ function SectionsCard({ location, reload, flash }) {
   );
 }
 
-function ExtraSectionRow({ location, section, reload, flash, onDone, onMoveUp, onMoveDown }) {
+function ExtraSectionRow({ location, section, reload, flash, onDone, dragging, dragOver, onDragStart, onDragEnd, onDragOver, onDrop }) {
   const isNew = !section;
   const [open, setOpen] = useState(isNew);
   const [title, setTitle] = useState(section?.title || '');
@@ -436,13 +462,19 @@ function ExtraSectionRow({ location, section, reload, flash, onDone, onMoveUp, o
 
   if (!isNew && !open) {
     return (
-      <div className="list-row">
-        {(onMoveUp || onMoveDown) && (
-          <span className="reorder">
-            <button onClick={onMoveUp} disabled={!onMoveUp} aria-label="Move up">▲</button>
-            <button onClick={onMoveDown} disabled={!onMoveDown} aria-label="Move down">▼</button>
-          </span>
-        )}
+      <div
+        className={`list-row drag-card${dragging ? ' is-dragging' : ''}${dragOver ? ' is-over' : ''}`}
+        onDragOver={onDragOver}
+        onDrop={onDrop}
+      >
+        <span
+          className="drag-handle"
+          draggable
+          onDragStart={onDragStart}
+          onDragEnd={onDragEnd}
+          title="Drag to reorder"
+          aria-label="Drag to reorder"
+        >⠿</span>
         <span className="grow"><strong>{section.title}</strong> <span className="muted" style={{ fontSize: 12 }}>· {section.group || 'Policies'}</span></span>
         <button className="btn ghost small" onClick={() => setOpen(true)}>Edit</button>
         <button className="btn ghost small" onClick={remove}>Remove</button>
@@ -488,7 +520,7 @@ function TemplateCard({ location, templates = [], reload, flash }) {
           <label>Template</label>
           <select value={tpl} onChange={(e) => setTpl(e.target.value)}>
             <option value="">— none —</option>
-            {templates.map((t) => <option key={t.key} value={t.key}>{t.name} — {t.description}</option>)}
+            {templates.map((t) => <option key={t.key} value={t.key}>{t.name}</option>)}
           </select>
         </div>
         <button className="btn" disabled={busy || !tpl} onClick={() => apply(true)}>Apply dates</button>
@@ -641,21 +673,31 @@ function OverrideEditor({ location, section, current, onSaved, flash }) {
 /* ─────────────────────────── Default sections ─────────────────────────── */
 function SectionsTab({ data, reload, flash }) {
   const { sections, groups } = data;
-  const [busy, setBusy] = useState(false);
+  const [dragKey, setDragKey] = useState(null);
+  const [overKey, setOverKey] = useState(null);
 
-  // Move a section up/down within its group by swapping positions with its
-  // neighbour, then persist both.
-  async function move(groupSections, index, dir) {
-    const j = index + dir;
-    if (j < 0 || j >= groupSections.length || busy) return;
-    const a = groupSections[index];
-    const b = groupSections[j];
-    setBusy(true);
+  // Persist a group's new order by reassigning that group's existing position
+  // values to the sections in their new order (keeps groups in their own band).
+  async function persistOrder(groupSections, newOrder) {
+    const positions = groupSections.map((s) => s.position).sort((a, b) => a - b);
+    const changed = newOrder
+      .map((s, i) => ({ key: s.key, position: positions[i] }))
+      .filter((p, i) => newOrder[i].position !== p.position);
     try {
-      await api('PATCH', `/api/admin/sections/${a.key}`, { position: b.position });
-      await api('PATCH', `/api/admin/sections/${b.key}`, { position: a.position });
-      await reload();
-    } catch (e) { flash(e.message); } finally { setBusy(false); }
+      for (const p of changed) await api('PATCH', `/api/admin/sections/${p.key}`, { position: p.position });
+      if (changed.length) { flash('Order saved'); await reload(); }
+    } catch (e) { flash(e.message); }
+  }
+
+  function onDrop(groupSections, targetKey) {
+    const from = groupSections.findIndex((s) => s.key === dragKey);
+    const to = groupSections.findIndex((s) => s.key === targetKey);
+    setDragKey(null); setOverKey(null);
+    if (from < 0 || to < 0 || from === to) return;
+    const newOrder = [...groupSections];
+    const [moved] = newOrder.splice(from, 1);
+    newOrder.splice(to, 0, moved);
+    persistOrder(groupSections, newOrder);
   }
 
   return (
@@ -664,8 +706,8 @@ function SectionsTab({ data, reload, flash }) {
         <h3>Shared handbook</h3>
         <p className="hint">
           The one handbook every campus starts from — edits here reach every campus (unless a campus customizes
-          a section for itself). Use the arrows to reorder sections; anything in <code>{'{{ }}'}</code> is a
-          campus detail that fills in automatically per campus.
+          a section for itself). <strong>Drag the ⠿ handle</strong> to reorder sections within a group. Anything
+          in <code>{'{{ }}'}</code> is a campus detail that fills in automatically per campus.
         </p>
       </div>
       {groups.map((groupName) => {
@@ -673,14 +715,18 @@ function SectionsTab({ data, reload, flash }) {
         return (
           <div key={groupName}>
             <div className="admin-group-title">{groupName}</div>
-            {groupSections.map((s, i) => (
+            {groupSections.map((s) => (
               <SectionEditor
                 key={s.key}
                 section={s}
                 reload={reload}
                 flash={flash}
-                onMoveUp={i > 0 ? () => move(groupSections, i, -1) : null}
-                onMoveDown={i < groupSections.length - 1 ? () => move(groupSections, i, 1) : null}
+                dragging={dragKey === s.key}
+                dragOver={overKey === s.key && dragKey !== s.key}
+                onDragStart={() => setDragKey(s.key)}
+                onDragEnd={() => { setDragKey(null); setOverKey(null); }}
+                onDragOver={(e) => { e.preventDefault(); if (dragKey) setOverKey(s.key); }}
+                onDrop={() => onDrop(groupSections, s.key)}
               />
             ))}
           </div>
@@ -690,7 +736,7 @@ function SectionsTab({ data, reload, flash }) {
   );
 }
 
-function SectionEditor({ section, reload, flash, onMoveUp, onMoveDown }) {
+function SectionEditor({ section, reload, flash, dragging, dragOver, onDragStart, onDragEnd, onDragOver, onDrop }) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState(section.title);
   const [body, setBody] = useState(section.body);
@@ -707,14 +753,21 @@ function SectionEditor({ section, reload, flash, onMoveUp, onMoveDown }) {
   }
 
   return (
-    <div className="card" style={{ marginBottom: 10, padding: '14px 18px' }}>
+    <div
+      className={`card drag-card${dragging ? ' is-dragging' : ''}${dragOver ? ' is-over' : ''}`}
+      style={{ marginBottom: 10, padding: '14px 18px' }}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+    >
       <div className="list-row" style={{ padding: 0, borderBottom: open ? '1px solid var(--line)' : 'none', paddingBottom: open ? 12 : 0 }}>
-        {(onMoveUp || onMoveDown) && (
-          <span className="reorder">
-            <button onClick={onMoveUp} disabled={!onMoveUp} aria-label="Move up">▲</button>
-            <button onClick={onMoveDown} disabled={!onMoveDown} aria-label="Move down">▼</button>
-          </span>
-        )}
+        <span
+          className="drag-handle"
+          draggable
+          onDragStart={onDragStart}
+          onDragEnd={onDragEnd}
+          title="Drag to reorder"
+          aria-label="Drag to reorder"
+        >⠿</span>
         <span className="grow"><strong>{section.title}</strong></span>
         <button className="btn ghost small" onClick={() => setOpen(!open)}>{open ? 'Close' : 'Edit'}</button>
       </div>

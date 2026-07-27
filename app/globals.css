@@ -447,6 +447,10 @@ body:has(.admin-wrap) { background: var(--cream); }
 .admin-top .muted { color: rgba(255,255,255,0.7) !important; }
 .admin-top .btn.ghost { background: rgba(255,255,255,0.08); color: #fff; border-color: rgba(255,255,255,0.28); }
 .admin-top .btn.ghost:hover { background: rgba(255,255,255,0.16); }
+.admin-top .acct-email { color: rgba(255,255,255,0.72); font-size: 13px; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.signout-btn { background: #fff; color: var(--navy); border: none; font-weight: 700; }
+.signout-btn:hover { background: var(--cream); }
+.admin-top form { margin: 0; }
 .admin-wrap { max-width: 1140px; margin: 0 auto; padding: 26px 20px 96px; }
 
 /* Tabs: understated pills that go navy when active. */
@@ -485,12 +489,13 @@ input:focus, textarea:focus, select:focus { outline: 2px solid rgba(207,159,63,0
 .list-row:last-child { border-bottom: none; }
 .list-row .grow { flex: 1; }
 .list-row strong { color: var(--navy); }
-/* Move up/down control for reorderable rows. */
-.reorder { display: inline-flex; flex-direction: column; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
-.reorder button { border: none; background: #fff; color: var(--ink-soft); cursor: pointer; width: 26px; height: 18px; line-height: 1; font-size: 11px; padding: 0; }
-.reorder button + button { border-top: 1px solid var(--line); }
-.reorder button:hover:not(:disabled) { background: var(--cream); color: var(--navy); }
-.reorder button:disabled { opacity: 0.3; cursor: default; }
+/* Drag-to-reorder handle + drop feedback. */
+.drag-handle { cursor: grab; color: var(--ink-mute); font-size: 17px; line-height: 1; padding: 2px 4px; border-radius: 6px; user-select: none; flex: none; }
+.drag-handle:hover { color: var(--navy); background: var(--cream); }
+.drag-handle:active { cursor: grabbing; }
+.drag-card { transition: box-shadow .1s, border-color .1s, opacity .1s; }
+.drag-card.is-dragging { opacity: 0.4; }
+.drag-card.is-over { border-color: var(--gold); box-shadow: 0 -2px 0 var(--gold) inset, var(--shadow); }
 .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--navy); color: #fff; padding: 10px 18px; border-radius: 10px; font-size: 14px; box-shadow: var(--shadow); z-index: 60; }
 textarea { min-height: 120px; resize: vertical; line-height: 1.5; font-size: 14px; }
 .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
