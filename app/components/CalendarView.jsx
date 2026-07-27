@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import {
   EVENT_CATEGORIES,
-  DAY_LEGEND,
+  legendFor,
   groupByMonth,
   sessionMonths,
   monthMatrix,
@@ -40,6 +40,7 @@ function monthKeyDates(year, month, events) {
 // Print-only "year at a glance": bright header + 12-month grid with key dates.
 function PrintCalendar({ sessions, events, today, cityLabel, academicYear }) {
   const months = schoolYearMonths(sessions, events);
+  const legend = legendFor(sessions, events);
   return (
     <div className="cal-print" aria-hidden="true">
       <div className="cpx-head">
@@ -71,7 +72,7 @@ function PrintCalendar({ sessions, events, today, cityLabel, academicYear }) {
         })}
         <div className="cpm cpm-key">
           <div className="cpm-key-title">Key</div>
-          {DAY_LEGEND.map((l) => (
+          {legend.map((l) => (
             <div className="cpm-key-item" key={l.key}>
               <span className={`swatch is-${l.key}`} />{l.label}
             </div>
@@ -146,6 +147,7 @@ export default function CalendarView({ sessions = [], events = [], addr, calName
   const today = useMemo(() => todayIso(), []);
   const upcoming = useMemo(() => nextEvent(events, today), [events, today]);
   const byMonth = useMemo(() => groupByMonth(events), [events]);
+  const legend = useMemo(() => legendFor(sessions, events), [sessions, events]);
 
   return (
     <div className="calview">
@@ -165,7 +167,7 @@ export default function CalendarView({ sessions = [], events = [], addr, calName
       {/* Color KEY */}
       <div className="cal-key">
         <span className="cal-key-label">Key</span>
-        {DAY_LEGEND.map((l) => (
+        {legend.map((l) => (
           <span className="cal-key-item" key={l.key}>
             <span className={`swatch is-${l.key}`} />{l.label}
           </span>
