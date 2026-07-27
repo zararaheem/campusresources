@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
-import { getCurrentEditor } from '@/lib/auth-helpers';
+import { cookies } from 'next/headers';
+import { getCurrentEditor, ADMIN_COOKIE } from '@/lib/auth-helpers';
 import { signOut } from '@/auth';
 import AdminApp from './AdminApp';
 
@@ -11,7 +12,14 @@ export default async function AdminPage() {
 
   async function doSignOut() {
     'use server';
-    await signOut({ redirectTo: '/' });
+    // Clear the access-code cookie (if any)…
+    try { (await cookies()).delete(ADMIN_COOKIE); } catch {}
+    // …and the Google session, then land on the handbook.
+    try {
+      await signOut({ redirectTo: '/' });
+    } catch {
+      redirect('/');
+    }
   }
 
   return <AdminApp editorEmail={editor.email} dev={!!editor.dev} signOutAction={doSignOut} />;

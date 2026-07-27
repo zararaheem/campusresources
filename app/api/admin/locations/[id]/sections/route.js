@@ -22,6 +22,18 @@ export async function POST(req, { params }) {
   }
 
   const body = await req.json();
+
+  // Reorder: body.reorder is the full list of keys in the desired order.
+  if (Array.isArray(body.reorder)) {
+    const current = Array.isArray(loc.extra_sections) ? loc.extra_sections : [];
+    const byKey = new Map(current.map((s) => [s.key, s]));
+    const reordered = body.reorder.map((k) => byKey.get(k)).filter(Boolean);
+    // Append any sections not named in the reorder list (safety).
+    for (const s of current) if (!body.reorder.includes(s.key)) reordered.push(s);
+    const updated = await getStore().updateLocation(id, { extra_sections: reordered });
+    return NextResponse.json({ location: updated });
+  }
+
   const title = String(body.title || '').trim();
   if (!title) return NextResponse.json({ error: 'Title is required.' }, { status: 400 });
   const group = String(body.group || 'Policies').trim() || 'Policies';
