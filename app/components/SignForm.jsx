@@ -40,7 +40,7 @@ export default function SignForm({ code, sectionKey, sectionTitle, bodyHtml }) {
   return (
     <>
       <button type="button" className="sign-btn no-print" onClick={() => setOpen(true)}>
-        ✍ Review &amp; sign this form
+        Review &amp; sign this form
       </button>
 
       {open && (
@@ -53,7 +53,7 @@ export default function SignForm({ code, sectionKey, sectionTitle, bodyHtml }) {
 
             {done ? (
               <div className="sign-body">
-                <h3 style={{ marginTop: 0 }}>Thank you — received ✓</h3>
+                <h3 style={{ marginTop: 0 }}>Thank you — received</h3>
                 <p className="hint">Your signature for <strong>{sectionTitle}</strong> has been submitted to the campus team.</p>
                 <button className="btn" onClick={close}>Done</button>
               </div>
