@@ -65,6 +65,7 @@ export default async function Page({ searchParams }) {
   const sections = await store.listSections();
   const { groups, sections: resolved, edited } = resolveHandbook(sections, location);
   const editionLabel = location.edition ? `${location.edition} Edition` : 'Living Edition';
+  const coverEdition = location.academic_year ? `${location.academic_year} Edition` : editionLabel;
   const cityLabel = location.fields?.city || location.name;
   const hasCalendar = Array.isArray(location.calendar) && location.calendar.length > 0;
   const searchIndex = resolved.map((s) => ({ key: s.key, title: s.title, group: s.group, text: toPlainText(s.body) }));
@@ -86,13 +87,22 @@ export default async function Page({ searchParams }) {
 
         {/* Full-page cover — only rendered in the printed / PDF version. */}
         <div className="print-cover" aria-hidden="true">
-          <div className="pc-center">
-            <AlphaLogo size={72} />
-            <div className="pc-title">Campus Handbook</div>
-            <div className="pc-city">{cityLabel}</div>
-            <div className="pc-edition">{editionLabel}</div>
+          <div className="pc-frame">
+            <div className="pc-top">
+              <AlphaLogo size={78} />
+              <div className="pc-kicker">Alpha Campus Handbook</div>
+            </div>
+            <div className="pc-center">
+              <div className="pc-title">{location.name}</div>
+              <div className="pc-rule" />
+              <div className="pc-sub">Campus Handbook</div>
+              <div className="pc-edition">{coverEdition}</div>
+            </div>
+            <div className="pc-foot">
+              {location.fields?.address && <div className="pc-addr">{location.fields.address}</div>}
+              {edited?.label && <div className="pc-updated">Last updated {edited.label}</div>}
+            </div>
           </div>
-          {edited?.label && <div className="pc-edited">Last edited: {edited.label}</div>}
         </div>
       </header>
 
