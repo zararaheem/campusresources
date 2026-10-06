@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { MED_FIELDS, MED_LEVELS, MED_ROUTES, MED_FREQS } from '@/lib/med';
 
 const PLACEHOLDER_RE = /\{\{\s*([a-z0-9_]+)\s*\}\}/gi;
 
@@ -64,7 +65,7 @@ export default function AdminApp({ editorEmail, dev, signOutAction }) {
   }
 
   const superUser = data.editor?.role === 'super';
-  const activeTab = superUser ? tab : (tab === 'signatures' ? 'signatures' : 'locations');
+  const activeTab = superUser ? tab : (['signatures', 'medications'].includes(tab) ? tab : 'locations');
 
   return (
     <>
@@ -95,6 +96,7 @@ export default function AdminApp({ editorEmail, dev, signOutAction }) {
           <button className={`tab ${activeTab === 'locations' ? 'active' : ''}`} onClick={() => setTab('locations')}>Locations</button>
           {superUser && <button className={`tab ${activeTab === 'sections' ? 'active' : ''}`} onClick={() => setTab('sections')}>Shared handbook</button>}
           <button className={`tab ${activeTab === 'signatures' ? 'active' : ''}`} onClick={() => setTab('signatures')}>Signed forms</button>
+          <button className={`tab ${activeTab === 'medications' ? 'active' : ''}`} onClick={() => setTab('medications')}>Student Medications</button>
           {superUser && <button className={`tab ${activeTab === 'editors' ? 'active' : ''}`} onClick={() => setTab('editors')}>Editors</button>}
         </div>
         {superUser && activeTab === 'locations' && (
@@ -114,6 +116,7 @@ export default function AdminApp({ editorEmail, dev, signOutAction }) {
         {activeTab === 'locations' && <LocationsTab data={data} reload={reload} flash={flash} superUser={superUser} />}
         {activeTab === 'sections' && superUser && <SectionsTab data={data} reload={reload} flash={flash} />}
         {activeTab === 'signatures' && <SignaturesTab />}
+        {activeTab === 'medications' && <MedicationsTab flash={flash} />}
         {activeTab === 'editors' && superUser && <EditorsTab data={data} reload={reload} flash={flash} editorEmail={editorEmail} />}
       </div>
 
@@ -931,6 +934,193 @@ function SignaturesTab() {
           <span className="muted" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{fmt(r.signed_at)}</span>
         </div>
       ))}
+    </div>
+  );
+}
+
+// Staff-only medication records: search, view, add, edit, delete.
+// All data flows through /api/admin/medications (server-gated) — no PIN, no
+// client-side database key. Codes auto-generate as lastname-s1, -s2, …
+const MED_EMPTY = Object.fromEntries(MED_FIELDS.map((k) => [k, '']));
+const MED_ERR_TEXT = {
+  bad_last_name: 'Last name needs at least one letter.',
+  missing_fields: 'First name, last name and medication are required.',
+  not_found: 'That record no longer exists.',
+};
+
+function MedicationsTab({ flash }) {
+  const [records, setRecords] = useState(null);
+  const [err, setErr] = useState(null);
+  const [q, setQ] = useState('');
+  const [mode, setMode] = useState('list'); // list | view | form
+  const [selected, setSelected] = useState(null);
+  const [editingCode, setEditingCode] = useState(null);
+  const [form, setForm] = useState(MED_EMPTY);
+  const [busy, setBusy] = useState(false);
+  const [formMsg, setFormMsg] = useState(null);
+  const [confirmDel, setConfirmDel] = useState(false);
+
+  async function load() {
+    try {
+      const d = await api('GET', '/api/admin/medications');
+      setRecords(d.records || []);
+    } catch (e) { setErr(e.message); }
+  }
+  useEffect(() => { load(); }, []);
+
+  const filtered = useMemo(() => {
+    const list = records || [];
+    const term = q.trim().toLowerCase();
+    if (!term) return list;
+    return list.filter((r) =>
+      [`${r.first_name} ${r.last_name}`, r.med, r.code, r.level]
+        .filter(Boolean).some((s) => String(s).toLowerCase().includes(term)));
+  }, [records, q]);
+
+  function openView(r) { setSelected(r); setConfirmDel(false); setMode('view'); }
+  function openAdd() { setForm(MED_EMPTY); setEditingCode(null); setFormMsg(null); setMode('form'); }
+  function openEdit(r) {
+    setForm({ ...MED_EMPTY, ...Object.fromEntries(MED_FIELDS.map((k) => [k, r[k] ?? ''])) });
+    setEditingCode(r.code); setFormMsg(null); setMode('form');
+  }
+  const setField = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+
+  async function save() {
+    setBusy(true); setFormMsg(null);
+    try {
+      const d = await api('POST', '/api/admin/medications', { code: editingCode, record: form });
+      await load();
+      flash(editingCode ? 'Record updated.' : `Record saved — code ${d.code}`);
+      const fresh = (await api('GET', '/api/admin/medications')).records.find((r) => r.code === d.code);
+      if (fresh) openView(fresh); else setMode('list');
+    } catch (e) {
+      setFormMsg(MED_ERR_TEXT[e.message] || 'Could not save. Try again.');
+    } finally { setBusy(false); }
+  }
+
+  async function remove(code) {
+    setBusy(true);
+    try {
+      await api('DELETE', `/api/admin/medications/${encodeURIComponent(code)}`);
+      await load();
+      flash(`${code} deleted.`);
+      setMode('list'); setSelected(null);
+    } catch (e) { flash(e.message || 'Could not delete.'); }
+    finally { setBusy(false); }
+  }
+
+  if (err) return <div className="card"><h3>Student Medications</h3><p style={{ color: 'var(--danger)', fontSize: 14 }}>{err}</p></div>;
+  if (!records) return <div className="card"><h3>Student Medications</h3><p className="muted">Loading…</p></div>;
+
+  // ── Add / edit form ──
+  if (mode === 'form') {
+    const L = (k, label, hint) => (
+      <div><label style={{ fontWeight: 700, fontSize: 13, display: 'block', marginBottom: 4 }}>{label}{hint && <span className="hint"> {hint}</span>}</label>{k}</div>
+    );
+    return (
+      <div className="card">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+          <button className="btn ghost small" onClick={() => (editingCode ? openView(selected) : setMode('list'))}>← Back</button>
+          <h3 style={{ margin: 0 }}>{editingCode ? `Edit ${editingCode}` : 'Add medication record'}</h3>
+        </div>
+        <p className="hint">A code is created automatically from the last name (e.g. <span className="mono">pack-s1</span>). Fields left blank are hidden on the card.</p>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 8 }}>
+          {L(<input value={form.first_name} onChange={(e) => setField('first_name', e.target.value)} />, 'First name')}
+          {L(<input value={form.last_name} onChange={(e) => setField('last_name', e.target.value)} />, 'Last name')}
+          {L(<select value={form.level} onChange={(e) => setField('level', e.target.value)}><option value="">—</option>{MED_LEVELS.map((o) => <option key={o}>{o}</option>)}</select>, 'Level')}
+          {L(<input value={form.med} onChange={(e) => setField('med', e.target.value)} placeholder="e.g. Methylphenidate" />, 'Medication')}
+          {L(<input value={form.dose} onChange={(e) => setField('dose', e.target.value)} placeholder="e.g. 10 mg, 1 tablet" />, 'Dose')}
+          {L(<select value={form.route} onChange={(e) => setField('route', e.target.value)}><option value="">—</option>{MED_ROUTES.map((o) => <option key={o}>{o}</option>)}</select>, "How it's given")}
+          {L(<select value={form.freq} onChange={(e) => setField('freq', e.target.value)}><option value="">—</option>{MED_FREQS.map((o) => <option key={o}>{o}</option>)}</select>, 'How often')}
+          {L(<input value={form.time_of_day} onChange={(e) => setField('time_of_day', e.target.value)} placeholder="e.g. Between 12:00 and 12:30" />, 'Time of day')}
+        </div>
+        <div style={{ marginTop: 12 }}>{L(<input value={form.storage} onChange={(e) => setField('storage', e.target.value)} placeholder="e.g. Locked cabinet, front office" />, "Where it's stored")}</div>
+        <div style={{ marginTop: 12 }}>{L(<textarea rows={3} value={form.instructions} onChange={(e) => setField('instructions', e.target.value)} placeholder="e.g. Give with water after lunch. Watch student swallow." />, 'Instructions for giving it')}</div>
+        <div style={{ marginTop: 12 }}>{L(<textarea rows={3} value={form.notes} onChange={(e) => setField('notes', e.target.value)} />, 'Other notes', '— allergies, side effects to watch, who to call')}</div>
+        {formMsg && <p style={{ color: 'var(--danger)', fontSize: 14, marginTop: 10 }}>{formMsg}</p>}
+        <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
+          <button className="btn" disabled={busy} onClick={save}>{busy ? 'Saving…' : (editingCode ? 'Save changes' : 'Save and create code')}</button>
+          <button className="btn ghost" disabled={busy} onClick={() => (editingCode ? openView(selected) : setMode('list'))}>Cancel</button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Single record card ──
+  if (mode === 'view' && selected) {
+    const r = selected;
+    const rows = [['Medication', r.med], ['Dose', r.dose], ["How it's given", r.route],
+      ['Where stored', r.storage], ['Instructions', r.instructions], ['Notes', r.notes]]
+      .filter(([, v]) => v && String(v).trim());
+    return (
+      <div className="card">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+          <button className="btn ghost small" onClick={() => setMode('list')}>← All records</button>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+          <div>
+            <h3 style={{ margin: 0 }}>{r.first_name} {r.last_name}</h3>
+            <span className="muted" style={{ fontSize: 13 }}>{r.level ? `Level: ${r.level}` : ''}</span>
+          </div>
+          <span className="mono" style={{ fontSize: 13, background: 'var(--line)', padding: '4px 10px', borderRadius: 999 }}>{r.code}</span>
+        </div>
+        {(r.freq || r.time_of_day) && (
+          <p style={{ fontWeight: 700, marginTop: 8 }}>🕑 {[r.freq, r.time_of_day].filter(Boolean).join(' · ')}</p>
+        )}
+        <dl style={{ margin: '12px 0 0' }}>
+          {rows.map(([k, v]) => (
+            <div key={k} style={{ display: 'grid', gridTemplateColumns: '150px 1fr', gap: 10, padding: '8px 0', borderTop: '1px solid var(--line)' }}>
+              <dt className="muted" style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 700 }}>{k}</dt>
+              <dd style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{v}</dd>
+            </div>
+          ))}
+        </dl>
+        <div style={{ display: 'flex', gap: 10, marginTop: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+          <button className="btn ghost" onClick={() => openEdit(r)}>Edit</button>
+          <span className="spacer" style={{ flex: 1 }} />
+          {!confirmDel ? (
+            <button className="btn danger" onClick={() => setConfirmDel(true)}>Delete</button>
+          ) : (
+            <span style={{ display: 'flex', gap: 8, alignItems: 'center', color: 'var(--danger)', fontWeight: 700 }}>
+              Delete {r.code}?
+              <button className="btn danger" disabled={busy} onClick={() => remove(r.code)}>Yes, delete</button>
+              <button className="btn ghost" disabled={busy} onClick={() => setConfirmDel(false)}>Keep</button>
+            </span>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ── List ──
+  return (
+    <div className="card">
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+        <h3 style={{ margin: 0 }}>Student Medications</h3>
+        <span className="badge warn" title="Medical information — staff only">staff only</span>
+        <span className="spacer" style={{ flex: 1 }} />
+        <button className="btn" onClick={openAdd}>+ Add record</button>
+      </div>
+      <p className="hint">Student medication records for campus staff. Visible only to signed-in editors; stored in your app, not a public page.</p>
+      <input style={{ marginTop: 6 }} placeholder="Search by name, medication, or code…" value={q} onChange={(e) => setQ(e.target.value)} />
+      {filtered.length === 0 ? (
+        <p className="muted" style={{ fontSize: 14, marginTop: 14 }}>
+          {records.length === 0 ? 'No records yet. Add one with “+ Add record”.' : 'No records match your search.'}
+        </p>
+      ) : (
+        <div style={{ marginTop: 10 }}>
+          {filtered.map((r) => (
+            <button key={r.code} className="list-row" onClick={() => openView(r)}
+              style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', borderTop: '1px solid var(--line)', cursor: 'pointer', padding: '10px 2px', display: 'flex', gap: 12 }}>
+              <span className="grow">
+                <strong>{r.first_name} {r.last_name}</strong>{r.level ? <span className="muted" style={{ fontSize: 12 }}> · {r.level}</span> : ''}
+                <div className="muted" style={{ fontSize: 13 }}>{[r.med, r.time_of_day || r.freq].filter(Boolean).join(' · ')}</div>
+              </span>
+              <span className="mono" style={{ fontSize: 12, color: 'var(--navy)', whiteSpace: 'nowrap' }}>{r.code}</span>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

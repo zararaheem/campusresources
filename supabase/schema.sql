@@ -74,3 +74,31 @@ alter table sections   enable row level security;
 alter table locations  enable row level security;
 alter table editors    enable row level security;
 alter table signatures enable row level security;
+
+-- ─────────────────────────────────────────────────────────────
+-- Student medication records (staff-only admin feature).
+-- Shared with the newsletter app via `nyc_med_records` in the same project,
+-- so there is a single medical dataset. Reached only through server-side API
+-- routes gated by the admin login; RLS-on / no-policies keeps the anon/public
+-- key out, same as the tables above. Codes are lastname-s1, -s2, … (lib/med.js).
+-- ─────────────────────────────────────────────────────────────
+create table if not exists nyc_med_records (
+  id           bigint generated always as identity primary key,
+  code         text unique not null,
+  last_key     text not null default '',
+  first_name   text not null default '',
+  last_name    text not null default '',
+  level        text,
+  med          text not null default '',
+  dose         text,
+  route        text,
+  freq         text,
+  time_of_day  text,
+  storage      text,
+  instructions text,
+  notes        text,
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now()
+);
+create index if not exists nyc_med_records_sort_idx on nyc_med_records (last_key, code);
+alter table nyc_med_records enable row level security;
