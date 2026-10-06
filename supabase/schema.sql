@@ -104,3 +104,12 @@ create table if not exists nyc_med_records (
 create index if not exists nyc_med_records_sort_idx on nyc_med_records (last_key, code);
 alter table nyc_med_records add column if not exists administered_by text;
 alter table nyc_med_records enable row level security;
+
+-- Medication Management PIN (a second gate on top of the admin login).
+-- Stores only a salted scrypt hash (computed in Node, see lib/med-pin.js);
+-- a null/absent row falls back to the default PIN until one is set.
+create table if not exists nyc_med_settings (
+  id       int primary key default 1 check (id = 1),
+  pin_hash text
+);
+alter table nyc_med_settings enable row level security;

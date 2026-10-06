@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { MED_FIELDS, MED_LEVELS, MED_ROUTES, MED_FREQS } from '@/lib/med';
+import { MED_FIELDS, MED_LEVELS, MED_ROUTES, MED_FREQS, MED_ADMINS } from '@/lib/med';
 
 const PLACEHOLDER_RE = /\{\{\s*([a-z0-9_]+)\s*\}\}/gi;
 
@@ -96,7 +96,7 @@ export default function AdminApp({ editorEmail, dev, signOutAction }) {
           <button className={`tab ${activeTab === 'locations' ? 'active' : ''}`} onClick={() => setTab('locations')}>Locations</button>
           {superUser && <button className={`tab ${activeTab === 'sections' ? 'active' : ''}`} onClick={() => setTab('sections')}>Shared handbook</button>}
           <button className={`tab ${activeTab === 'signatures' ? 'active' : ''}`} onClick={() => setTab('signatures')}>Signed forms</button>
-          <button className={`tab ${activeTab === 'medications' ? 'active' : ''}`} onClick={() => setTab('medications')}>Student Medications</button>
+          <button className={`tab ${activeTab === 'medications' ? 'active' : ''}`} onClick={() => setTab('medications')}>Medication Mgmt</button>
           {superUser && <button className={`tab ${activeTab === 'editors' ? 'active' : ''}`} onClick={() => setTab('editors')}>Editors</button>}
         </div>
         {superUser && activeTab === 'locations' && (
@@ -1002,6 +1002,12 @@ function MedicationsTab({ flash }) {
   const [confirmDel, setConfirmDel] = useState(false);
   const [lookupCode, setLookupCode] = useState('');
   const [lookupMsg, setLookupMsg] = useState(null);
+  const [unlocked, setUnlocked] = useState(null); // null = checking, false = locked, true = open
+  const [pinVal, setPinVal] = useState('');
+  const [pinMsg, setPinMsg] = useState(null);
+  const [pinBusy, setPinBusy] = useState(false);
+  const [changing, setChanging] = useState(false);
+  const [newPin, setNewPin] = useState('');
 
   function lookup(e) {
     e?.preventDefault?.();
@@ -1016,9 +1022,44 @@ function MedicationsTab({ flash }) {
     try {
       const d = await api('GET', '/api/admin/medications');
       setRecords(d.records || []);
-    } catch (e) { setErr(e.message); }
+    } catch (e) {
+      if (e.message === 'locked') { setUnlocked(false); setRecords(null); }
+      else setErr(e.message);
+    }
   }
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    (async () => {
+      try {
+        const s = await api('GET', '/api/admin/medications/unlock');
+        if (s.unlocked) { setUnlocked(true); load(); } else setUnlocked(false);
+      } catch (e) { setErr(e.message); }
+    })();
+  }, []);
+
+  async function doUnlock(e) {
+    e?.preventDefault?.();
+    setPinBusy(true); setPinMsg(null);
+    try {
+      await api('POST', '/api/admin/medications/unlock', { pin: pinVal });
+      setPinVal(''); setUnlocked(true); load();
+    } catch (e) {
+      setPinMsg(e.message === 'bad_pin' ? "That PIN isn't right." : 'Could not unlock. Try again.');
+    } finally { setPinBusy(false); }
+  }
+  async function relock() {
+    try { await api('DELETE', '/api/admin/medications/unlock'); } catch {}
+    setRecords(null); setMode('list'); setUnlocked(false);
+  }
+  async function changePin(e) {
+    e?.preventDefault?.();
+    setPinBusy(true);
+    try {
+      await api('POST', '/api/admin/medications/pin', { newPin });
+      setChanging(false); setNewPin(''); flash('PIN updated.');
+    } catch (e) {
+      flash(e.message === 'bad_format' ? 'PIN must be 4–10 digits.' : 'Could not update PIN.');
+    } finally { setPinBusy(false); }
+  }
 
   const filtered = useMemo(() => {
     const list = records || [];
@@ -1061,14 +1102,41 @@ function MedicationsTab({ flash }) {
     finally { setBusy(false); }
   }
 
-  if (err) return <div className="card"><h3>Student Medications</h3><p style={{ color: 'var(--danger)', fontSize: 14 }}>{err}</p></div>;
-  if (!records) return <div className="card"><h3>Student Medications</h3><p className="muted">Loading…</p></div>;
+  if (err) return <div className="card"><h3>Medication Management</h3><p style={{ color: 'var(--danger)', fontSize: 14 }}>{err}</p></div>;
+
+  // PIN gate — a second lock on top of the admin sign-in.
+  if (unlocked === null) return <div className="card"><h3>Medication Management</h3><p className="muted">Loading…</p></div>;
+  if (!unlocked) {
+    return (
+      <div className="card" style={{ maxWidth: 460 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <h3 style={{ margin: 0 }}>Medication Management</h3>
+          <span className="badge warn" title="Medical information — staff only">staff only</span>
+        </div>
+        <p className="hint">🔒 Enter the medication PIN to view student records. This is a second lock on top of your admin sign-in.</p>
+        <form onSubmit={doUnlock} style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+          <input type="password" inputMode="numeric" autoComplete="off" placeholder="PIN" value={pinVal}
+            autoFocus onChange={(e) => { setPinVal(e.target.value); setPinMsg(null); }} style={{ flex: '1 1 180px' }} />
+          <button className="btn" type="submit" disabled={pinBusy}>{pinBusy ? '…' : 'Unlock'}</button>
+        </form>
+        {pinMsg && <p style={{ color: 'var(--danger)', fontSize: 13, marginTop: 8 }}>{pinMsg}</p>}
+      </div>
+    );
+  }
+
+  if (!records) return <div className="card"><h3>Medication Management</h3><p className="muted">Loading…</p></div>;
 
   // ── Add / edit form ──
   if (mode === 'form') {
     const L = (k, label, hint) => (
       <div><label style={{ fontWeight: 700, fontSize: 13, display: 'block', marginBottom: 4 }}>{label}{hint && <span className="hint"> {hint}</span>}</label>{k}</div>
     );
+    const adminSel = new Set((form.administered_by || '').split(',').map((s) => s.trim()).filter(Boolean));
+    const toggleAdmin = (opt) => {
+      const next = new Set(adminSel);
+      if (next.has(opt)) next.delete(opt); else next.add(opt);
+      setField('administered_by', MED_ADMINS.filter((o) => next.has(o)).join(', '));
+    };
     return (
       <div className="card">
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
@@ -1088,7 +1156,14 @@ function MedicationsTab({ flash }) {
         </div>
         <div style={{ marginTop: 12 }}>{L(<input value={form.storage} onChange={(e) => setField('storage', e.target.value)} placeholder="e.g. Locked cabinet, front office" />, "Where it's stored")}</div>
         <div style={{ marginTop: 12 }}>{L(<textarea rows={3} value={form.instructions} onChange={(e) => setField('instructions', e.target.value)} placeholder="e.g. Give with water after lunch. Watch student swallow." />, 'Instructions for giving it')}</div>
-        <div style={{ marginTop: 12 }}>{L(<input value={form.administered_by} onChange={(e) => setField('administered_by', e.target.value)} placeholder="e.g. Head of School or trained office staff; self-carry with nurse approval" />, 'Who can administer', '— staff authorized to give this medication')}</div>
+        <div style={{ marginTop: 12 }}>{L(
+          <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', paddingTop: 4 }}>
+            {MED_ADMINS.map((o) => (
+              <label key={o} style={{ display: 'flex', gap: 6, alignItems: 'center', fontWeight: 400, marginBottom: 0 }}>
+                <input type="checkbox" checked={adminSel.has(o)} onChange={() => toggleAdmin(o)} style={{ width: 'auto' }} /> {o}
+              </label>
+            ))}
+          </div>, 'Who can administer', '— CC = Campus Coordinator · LG = Lead Guide')}</div>
         <div style={{ marginTop: 12 }}>{L(<textarea rows={3} value={form.notes} onChange={(e) => setField('notes', e.target.value)} />, 'Other notes', '— allergies, side effects to watch, who to call')}</div>
         {formMsg && <p style={{ color: 'var(--danger)', fontSize: 14, marginTop: 10 }}>{formMsg}</p>}
         <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
@@ -1131,6 +1206,7 @@ function MedicationsTab({ flash }) {
         </dl>
         <div style={{ display: 'flex', gap: 10, marginTop: 16, alignItems: 'center', flexWrap: 'wrap' }}>
           <button className="btn ghost" onClick={() => openEdit(r)}>Edit</button>
+          <button className="btn ghost" onClick={() => { if (!printMedReport([r])) flash('Allow pop-ups to print.'); }}>Print</button>
           <span className="spacer" style={{ flex: 1 }} />
           {!confirmDel ? (
             <button className="btn danger" onClick={() => setConfirmDel(true)}>Delete</button>
@@ -1150,7 +1226,7 @@ function MedicationsTab({ flash }) {
   return (
     <div className="card">
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-        <h3 style={{ margin: 0 }}>Student Medications</h3>
+        <h3 style={{ margin: 0 }}>Medication Management</h3>
         <span className="badge warn" title="Medical information — staff only">staff only</span>
         <span className="spacer" style={{ flex: 1 }} />
         {records.length > 0 && <button className="btn ghost" onClick={() => { if (!printMedReport(records)) flash('Allow pop-ups to print.'); }}>Print / PDF</button>}
@@ -1186,6 +1262,20 @@ function MedicationsTab({ flash }) {
           ))}
         </div>
       )}
+
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--line)' }}>
+        <button className="btn ghost small" onClick={relock}>🔒 Lock</button>
+        {!changing ? (
+          <button className="btn ghost small" onClick={() => { setChanging(true); setNewPin(''); }}>Change PIN</button>
+        ) : (
+          <form onSubmit={changePin} style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <input type="password" inputMode="numeric" autoComplete="off" placeholder="New PIN (4–10 digits)" value={newPin}
+              onChange={(e) => setNewPin(e.target.value)} style={{ flex: '0 1 190px' }} />
+            <button className="btn small" type="submit" disabled={pinBusy}>Save PIN</button>
+            <button className="btn ghost small" type="button" onClick={() => setChanging(false)}>Cancel</button>
+          </form>
+        )}
+      </div>
     </div>
   );
 }
