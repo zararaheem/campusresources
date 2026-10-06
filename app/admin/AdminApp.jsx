@@ -96,7 +96,7 @@ export default function AdminApp({ editorEmail, dev, signOutAction }) {
           <button className={`tab ${activeTab === 'locations' ? 'active' : ''}`} onClick={() => setTab('locations')}>Locations</button>
           {superUser && <button className={`tab ${activeTab === 'sections' ? 'active' : ''}`} onClick={() => setTab('sections')}>Shared handbook</button>}
           <button className={`tab ${activeTab === 'signatures' ? 'active' : ''}`} onClick={() => setTab('signatures')}>Signed forms</button>
-          <button className={`tab ${activeTab === 'medications' ? 'active' : ''}`} onClick={() => setTab('medications')}>Medications</button>
+          <button className={`tab ${activeTab === 'medications' ? 'active' : ''}`} onClick={() => setTab('medications')}>Student Medications</button>
           {superUser && <button className={`tab ${activeTab === 'editors' ? 'active' : ''}`} onClick={() => setTab('editors')}>Editors</button>}
         </div>
         {superUser && activeTab === 'locations' && (
@@ -1009,8 +1009,8 @@ function MedicationsTab({ flash }) {
     finally { setBusy(false); }
   }
 
-  if (err) return <div className="card"><h3>Medications</h3><p style={{ color: 'var(--danger)', fontSize: 14 }}>{err}</p></div>;
-  if (!records) return <div className="card"><h3>Medications</h3><p className="muted">Loading…</p></div>;
+  if (err) return <div className="card"><h3>Student Medications</h3><p style={{ color: 'var(--danger)', fontSize: 14 }}>{err}</p></div>;
+  if (!records) return <div className="card"><h3>Student Medications</h3><p className="muted">Loading…</p></div>;
 
   // ── Add / edit form ──
   if (mode === 'form') {
@@ -1096,7 +1096,7 @@ function MedicationsTab({ flash }) {
   return (
     <div className="card">
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-        <h3 style={{ margin: 0 }}>Medications</h3>
+        <h3 style={{ margin: 0 }}>Student Medications</h3>
         <span className="badge warn" title="Medical information — staff only">staff only</span>
         <span className="spacer" style={{ flex: 1 }} />
         <button className="btn" onClick={openAdd}>+ Add record</button>
