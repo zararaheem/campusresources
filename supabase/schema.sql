@@ -94,11 +94,13 @@ create table if not exists nyc_med_records (
   route        text,
   freq         text,
   time_of_day  text,
-  storage      text,
-  instructions text,
-  notes        text,
-  created_at   timestamptz not null default now(),
-  updated_at   timestamptz not null default now()
+  storage        text,
+  instructions   text,
+  administered_by text,
+  notes          text,
+  created_at     timestamptz not null default now(),
+  updated_at     timestamptz not null default now()
 );
 create index if not exists nyc_med_records_sort_idx on nyc_med_records (last_key, code);
+alter table nyc_med_records add column if not exists administered_by text;
 alter table nyc_med_records enable row level security;
