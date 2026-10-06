@@ -948,6 +948,47 @@ const MED_ERR_TEXT = {
   not_found: 'That record no longer exists.',
 };
 
+// Build a self-contained printable HTML document for the medication records and
+// open it in a new window to print / save as PDF. Kept standalone so it is not
+// affected by the handbook's @page / print styles.
+function printMedReport(records) {
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const date = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  const rowDefs = (r) => [['Medication', r.med], ['Dose', r.dose], ["How it's given", r.route],
+    ['How often', [r.freq, r.time_of_day].filter(Boolean).join(' · ')], ['Where stored', r.storage],
+    ['Instructions', r.instructions], ['Who can administer', r.administered_by], ['Notes', r.notes]]
+    .filter(([, v]) => v && String(v).trim());
+  const cards = (records || []).map((r) => `
+    <div class="card">
+      <div class="ch"><span class="nm">${esc(r.first_name)} ${esc(r.last_name)}${r.level ? ` · ${esc(r.level)}` : ''}</span><span class="cd">${esc(r.code)}</span></div>
+      <dl>${rowDefs(r).map(([k, v]) => `<div class="row"><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>
+    </div>`).join('');
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>Student Medications</title><style>
+    @page { margin: 14mm; }
+    * { box-sizing: border-box; }
+    body { font: 12px/1.5 -apple-system, "Segoe UI", Roboto, sans-serif; color: #13211f; margin: 0; }
+    .head { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #0d6b6e; padding-bottom: 8px; margin-bottom: 14px; }
+    .title { font-size: 22px; font-weight: 800; }
+    .sub, .date { font-size: 11px; color: #566b6f; }
+    .card { break-inside: avoid; border: 1px solid #cfd9d9; border-radius: 6px; padding: 10px 12px; margin-bottom: 10px; }
+    .ch { display: flex; justify-content: space-between; border-bottom: 1px solid #e9eded; padding-bottom: 5px; margin-bottom: 6px; }
+    .nm { font-weight: 700; font-size: 13px; } .cd { font-family: ui-monospace, Menlo, monospace; font-size: 11px; color: #0d6b6e; }
+    dl { margin: 0; } .row { display: grid; grid-template-columns: 140px 1fr; gap: 8px; padding: 3px 0; }
+    dt { font-size: 9px; text-transform: uppercase; letter-spacing: .05em; color: #566b6f; font-weight: 700; padding-top: 2px; }
+    dd { margin: 0; white-space: pre-wrap; }
+    .foot { margin-top: 12px; font-size: 9px; color: #8898a0; text-align: center; }
+  </style></head><body>
+    <div class="head"><div><div class="title">Student Medications</div><div class="sub">New York · ${(records || []).length} record${(records || []).length === 1 ? '' : 's'}</div></div><div class="date">As of ${esc(date)}</div></div>
+    ${(records || []).length ? cards : '<p>No records.</p>'}
+    <div class="foot">Confidential — student medical information. For campus staff use only.</div>
+  </body></html>`;
+  const w = window.open('', '_blank');
+  if (!w) return false;
+  w.document.write(html); w.document.close(); w.focus();
+  setTimeout(() => { try { w.print(); } catch {} }, 300);
+  return true;
+}
+
 function MedicationsTab({ flash }) {
   const [records, setRecords] = useState(null);
   const [err, setErr] = useState(null);
@@ -959,6 +1000,17 @@ function MedicationsTab({ flash }) {
   const [busy, setBusy] = useState(false);
   const [formMsg, setFormMsg] = useState(null);
   const [confirmDel, setConfirmDel] = useState(false);
+  const [lookupCode, setLookupCode] = useState('');
+  const [lookupMsg, setLookupMsg] = useState(null);
+
+  function lookup(e) {
+    e?.preventDefault?.();
+    const c = lookupCode.trim().toLowerCase();
+    if (!c) return;
+    const hit = (records || []).find((r) => r.code.toLowerCase() === c);
+    if (hit) { setLookupMsg(null); setLookupCode(''); openView(hit); }
+    else setLookupMsg(`No record for "${c}". Check the spelling, e.g. pack-s1.`);
+  }
 
   async function load() {
     try {
@@ -1036,6 +1088,7 @@ function MedicationsTab({ flash }) {
         </div>
         <div style={{ marginTop: 12 }}>{L(<input value={form.storage} onChange={(e) => setField('storage', e.target.value)} placeholder="e.g. Locked cabinet, front office" />, "Where it's stored")}</div>
         <div style={{ marginTop: 12 }}>{L(<textarea rows={3} value={form.instructions} onChange={(e) => setField('instructions', e.target.value)} placeholder="e.g. Give with water after lunch. Watch student swallow." />, 'Instructions for giving it')}</div>
+        <div style={{ marginTop: 12 }}>{L(<input value={form.administered_by} onChange={(e) => setField('administered_by', e.target.value)} placeholder="e.g. Head of School or trained office staff; self-carry with nurse approval" />, 'Who can administer', '— staff authorized to give this medication')}</div>
         <div style={{ marginTop: 12 }}>{L(<textarea rows={3} value={form.notes} onChange={(e) => setField('notes', e.target.value)} />, 'Other notes', '— allergies, side effects to watch, who to call')}</div>
         {formMsg && <p style={{ color: 'var(--danger)', fontSize: 14, marginTop: 10 }}>{formMsg}</p>}
         <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
@@ -1050,7 +1103,8 @@ function MedicationsTab({ flash }) {
   if (mode === 'view' && selected) {
     const r = selected;
     const rows = [['Medication', r.med], ['Dose', r.dose], ["How it's given", r.route],
-      ['Where stored', r.storage], ['Instructions', r.instructions], ['Notes', r.notes]]
+      ['Where stored', r.storage], ['Instructions', r.instructions],
+      ['Who can administer', r.administered_by], ['Notes', r.notes]]
       .filter(([, v]) => v && String(v).trim());
     return (
       <div className="card">
@@ -1099,10 +1153,21 @@ function MedicationsTab({ flash }) {
         <h3 style={{ margin: 0 }}>Student Medications</h3>
         <span className="badge warn" title="Medical information — staff only">staff only</span>
         <span className="spacer" style={{ flex: 1 }} />
+        {records.length > 0 && <button className="btn ghost" onClick={() => { if (!printMedReport(records)) flash('Allow pop-ups to print.'); }}>Print / PDF</button>}
         <button className="btn" onClick={openAdd}>+ Add record</button>
       </div>
       <p className="hint">Student medication records for campus staff. Visible only to signed-in editors; stored in your app, not a public page.</p>
-      <input style={{ marginTop: 6 }} placeholder="Search by name, medication, or code…" value={q} onChange={(e) => setQ(e.target.value)} />
+
+      {/* Quick lookup by exact code */}
+      <form onSubmit={lookup} style={{ display: 'flex', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
+        <input style={{ flex: '1 1 220px', fontFamily: 'ui-monospace, Menlo, monospace' }}
+          placeholder="Look up by code, e.g. pack-s1" value={lookupCode} autoCapitalize="off" spellCheck={false}
+          onChange={(e) => { setLookupCode(e.target.value); setLookupMsg(null); }} />
+        <button className="btn" type="submit">Open</button>
+      </form>
+      {lookupMsg && <p style={{ color: 'var(--danger)', fontSize: 13, margin: '6px 0 0' }}>{lookupMsg}</p>}
+
+      <input style={{ marginTop: 10 }} placeholder="Or search by name, medication, or code…" value={q} onChange={(e) => setQ(e.target.value)} />
       {filtered.length === 0 ? (
         <p className="muted" style={{ fontSize: 14, marginTop: 14 }}>
           {records.length === 0 ? 'No records yet. Add one with “+ Add record”.' : 'No records match your search.'}
