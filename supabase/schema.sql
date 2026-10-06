@@ -74,3 +74,28 @@ alter table sections   enable row level security;
 alter table locations  enable row level security;
 alter table editors    enable row level security;
 alter table signatures enable row level security;
+
+-- ─────────────────────────────────────────────────────────────
+-- Student medication records (staff-only admin feature).
+-- Reached only through server-side API routes gated by the admin login;
+-- RLS-on / no-policies keeps the anon/public key out, same as the tables above.
+-- Codes are generated as lastname-s1, -s2, … (see lib/med.js).
+-- ─────────────────────────────────────────────────────────────
+create table if not exists med_records (
+  code         text primary key,
+  last_key     text not null default '',
+  first_name   text not null default '',
+  last_name    text not null default '',
+  level        text,
+  med          text not null default '',
+  dose         text,
+  route        text,
+  freq         text,
+  time_of_day  text,
+  storage      text,
+  instructions text,
+  notes        text,
+  updated_at   timestamptz not null default now()
+);
+create index if not exists med_records_sort_idx on med_records (last_key, code);
+alter table med_records enable row level security;
