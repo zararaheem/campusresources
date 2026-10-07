@@ -26,7 +26,7 @@ function placeholdersInSections(sections) {
   return keys;
 }
 
-export default function AdminApp({ editorEmail, dev, signOutAction }) {
+export default function AdminApp({ editorEmail, dev, signOutAction, only }) {
   const [data, setData] = useState(null);
   const [tab, setTab] = useState('locations');
   const [toast, setToast] = useState(null);
@@ -47,8 +47,34 @@ export default function AdminApp({ editorEmail, dev, signOutAction }) {
   }
 
   useEffect(() => {
-    reload();
-  }, []);
+    if (only !== 'medications') reload();
+  }, [only]);
+
+  // Dedicated single-purpose view (e.g. /admin/medications) — gated by the
+  // admin login, shows only the Medication Management panel. No bootstrap needed.
+  if (only === 'medications') {
+    return (
+      <>
+        <div className="admin-top">
+          <span className="brand">Medication Management</span>
+          <span className="spacer" />
+          <span className="acct-email" title={editorEmail}>{editorEmail}</span>
+          <a className="btn ghost small" href="/admin">Full admin</a>
+          {dev ? (
+            <span className="badge warn">dev bypass</span>
+          ) : (
+            <form action={signOutAction}>
+              <button className="btn signout-btn small" type="submit">Sign out</button>
+            </form>
+          )}
+        </div>
+        <div className="admin-wrap">
+          <MedicationsTab flash={flash} />
+        </div>
+        {toast && <div className="toast">{toast}</div>}
+      </>
+    );
+  }
 
   if (error) {
     return (
@@ -1002,12 +1028,6 @@ function MedicationsTab({ flash }) {
   const [confirmDel, setConfirmDel] = useState(false);
   const [lookupCode, setLookupCode] = useState('');
   const [lookupMsg, setLookupMsg] = useState(null);
-  const [unlocked, setUnlocked] = useState(null); // null = checking, false = locked, true = open
-  const [pinVal, setPinVal] = useState('');
-  const [pinMsg, setPinMsg] = useState(null);
-  const [pinBusy, setPinBusy] = useState(false);
-  const [changing, setChanging] = useState(false);
-  const [newPin, setNewPin] = useState('');
 
   function lookup(e) {
     e?.preventDefault?.();
@@ -1022,44 +1042,9 @@ function MedicationsTab({ flash }) {
     try {
       const d = await api('GET', '/api/admin/medications');
       setRecords(d.records || []);
-    } catch (e) {
-      if (e.message === 'locked') { setUnlocked(false); setRecords(null); }
-      else setErr(e.message);
-    }
+    } catch (e) { setErr(e.message); }
   }
-  useEffect(() => {
-    (async () => {
-      try {
-        const s = await api('GET', '/api/admin/medications/unlock');
-        if (s.unlocked) { setUnlocked(true); load(); } else setUnlocked(false);
-      } catch (e) { setErr(e.message); }
-    })();
-  }, []);
-
-  async function doUnlock(e) {
-    e?.preventDefault?.();
-    setPinBusy(true); setPinMsg(null);
-    try {
-      await api('POST', '/api/admin/medications/unlock', { pin: pinVal });
-      setPinVal(''); setUnlocked(true); load();
-    } catch (e) {
-      setPinMsg(e.message === 'bad_pin' ? "That PIN isn't right." : 'Could not unlock. Try again.');
-    } finally { setPinBusy(false); }
-  }
-  async function relock() {
-    try { await api('DELETE', '/api/admin/medications/unlock'); } catch {}
-    setRecords(null); setMode('list'); setUnlocked(false);
-  }
-  async function changePin(e) {
-    e?.preventDefault?.();
-    setPinBusy(true);
-    try {
-      await api('POST', '/api/admin/medications/pin', { newPin });
-      setChanging(false); setNewPin(''); flash('PIN updated.');
-    } catch (e) {
-      flash(e.message === 'bad_format' ? 'PIN must be 4–10 digits.' : 'Could not update PIN.');
-    } finally { setPinBusy(false); }
-  }
+  useEffect(() => { load(); }, []);
 
   const filtered = useMemo(() => {
     const list = records || [];
@@ -1103,27 +1088,6 @@ function MedicationsTab({ flash }) {
   }
 
   if (err) return <div className="card"><h3>Medication Management</h3><p style={{ color: 'var(--danger)', fontSize: 14 }}>{err}</p></div>;
-
-  // PIN gate — a second lock on top of the admin sign-in.
-  if (unlocked === null) return <div className="card"><h3>Medication Management</h3><p className="muted">Loading…</p></div>;
-  if (!unlocked) {
-    return (
-      <div className="card" style={{ maxWidth: 460 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <h3 style={{ margin: 0 }}>Medication Management</h3>
-          <span className="badge warn" title="Medical information — staff only">staff only</span>
-        </div>
-        <p className="hint">🔒 Enter the medication PIN to view student records. This is a second lock on top of your admin sign-in.</p>
-        <form onSubmit={doUnlock} style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
-          <input type="password" inputMode="numeric" autoComplete="off" placeholder="PIN" value={pinVal}
-            autoFocus onChange={(e) => { setPinVal(e.target.value); setPinMsg(null); }} style={{ flex: '1 1 180px' }} />
-          <button className="btn" type="submit" disabled={pinBusy}>{pinBusy ? '…' : 'Unlock'}</button>
-        </form>
-        {pinMsg && <p style={{ color: 'var(--danger)', fontSize: 13, marginTop: 8 }}>{pinMsg}</p>}
-      </div>
-    );
-  }
-
   if (!records) return <div className="card"><h3>Medication Management</h3><p className="muted">Loading…</p></div>;
 
   // ── Add / edit form ──
@@ -1262,20 +1226,6 @@ function MedicationsTab({ flash }) {
           ))}
         </div>
       )}
-
-      <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--line)' }}>
-        <button className="btn ghost small" onClick={relock}>🔒 Lock</button>
-        {!changing ? (
-          <button className="btn ghost small" onClick={() => { setChanging(true); setNewPin(''); }}>Change PIN</button>
-        ) : (
-          <form onSubmit={changePin} style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-            <input type="password" inputMode="numeric" autoComplete="off" placeholder="New PIN (4–10 digits)" value={newPin}
-              onChange={(e) => setNewPin(e.target.value)} style={{ flex: '0 1 190px' }} />
-            <button className="btn small" type="submit" disabled={pinBusy}>Save PIN</button>
-            <button className="btn ghost small" type="button" onClick={() => setChanging(false)}>Cancel</button>
-          </form>
-        )}
-      </div>
     </div>
   );
 }
