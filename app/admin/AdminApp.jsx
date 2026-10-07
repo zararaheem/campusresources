@@ -979,33 +979,59 @@ const MED_ERR_TEXT = {
 // affected by the handbook's @page / print styles.
 function printMedReport(records) {
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const list = records || [];
   const date = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   const rowDefs = (r) => [['Medication', r.med], ['Dose', r.dose], ["How it's given", r.route],
     ['How often', [r.freq, r.time_of_day].filter(Boolean).join(' · ')], ['Where stored', r.storage],
     ['Instructions', r.instructions], ['Who can administer', r.administered_by], ['Notes', r.notes]]
     .filter(([, v]) => v && String(v).trim());
-  const cards = (records || []).map((r) => `
-    <div class="card">
-      <div class="ch"><span class="nm">${esc(r.first_name)} ${esc(r.last_name)}${r.level ? ` · ${esc(r.level)}` : ''}</span><span class="cd">${esc(r.code)}</span></div>
-      <dl>${rowDefs(r).map(([k, v]) => `<div class="row"><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>
-    </div>`).join('');
+  const cards = list.map((r) => `
+    <section class="card">
+      <div class="ch">
+        <span class="nm">${esc(r.first_name)} ${esc(r.last_name)}${r.level ? `<span class="lvl">${esc(r.level)}</span>` : ''}</span>
+        <span class="cd">${esc(r.code)}</span>
+      </div>
+      <dl>${rowDefs(r).map(([k, v]) => {
+        const cls = k === 'Who can administer' ? 'row admin' : 'row';
+        return `<div class="${cls}"><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`;
+      }).join('')}</dl>
+    </section>`).join('');
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>Student Medications</title><style>
-    @page { margin: 14mm; }
-    * { box-sizing: border-box; }
-    body { font: 12px/1.5 -apple-system, "Segoe UI", Roboto, sans-serif; color: #13211f; margin: 0; }
-    .head { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #0d6b6e; padding-bottom: 8px; margin-bottom: 14px; }
-    .title { font-size: 22px; font-weight: 800; }
-    .sub, .date { font-size: 11px; color: #566b6f; }
-    .card { break-inside: avoid; border: 1px solid #cfd9d9; border-radius: 6px; padding: 10px 12px; margin-bottom: 10px; }
-    .ch { display: flex; justify-content: space-between; border-bottom: 1px solid #e9eded; padding-bottom: 5px; margin-bottom: 6px; }
-    .nm { font-weight: 700; font-size: 13px; } .cd { font-family: ui-monospace, Menlo, monospace; font-size: 11px; color: #0d6b6e; }
-    dl { margin: 0; } .row { display: grid; grid-template-columns: 140px 1fr; gap: 8px; padding: 3px 0; }
-    dt { font-size: 9px; text-transform: uppercase; letter-spacing: .05em; color: #566b6f; font-weight: 700; padding-top: 2px; }
+    @page { margin: 0; }
+    * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    body { font: 12px/1.5 -apple-system, "Segoe UI", Roboto, Helvetica, sans-serif; color: #1b2433; margin: 0; }
+    .banner { background: #16233f; color: #fff; border-bottom: 3px solid #cf9f3f;
+      padding: 20px 16mm 16px; display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; }
+    .banner .title { font-size: 25px; font-weight: 800; letter-spacing: .01em; }
+    .banner .sub { font-size: 10px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; color: #cf9f3f; margin-top: 4px; }
+    .banner .date { font-size: 11px; color: rgba(255,255,255,.8); white-space: nowrap; }
+    .wrap { padding: 14px 16mm 4mm; }
+    .legend { font-size: 10px; color: #5a647c; margin: 0 0 14px; padding-bottom: 10px; border-bottom: 1px solid #e7eaf1; }
+    .legend b { color: #16233f; }
+    .card { break-inside: avoid; border: 1px solid #dde1ea; border-radius: 8px; padding: 12px 14px; margin-bottom: 11px; }
+    .ch { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; border-bottom: 1px solid #eef0f5; padding-bottom: 7px; margin-bottom: 8px; }
+    .nm { font-weight: 800; font-size: 14.5px; color: #16233f; }
+    .lvl { font-weight: 600; font-size: 11px; color: #7a8296; margin-left: 8px; }
+    .cd { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11px; color: #16233f; background: #f1e9d6; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+    dl { margin: 0; }
+    .row { display: grid; grid-template-columns: 150px 1fr; gap: 10px; padding: 3.5px 0; }
+    .row.admin { background: #f7f2e6; border: 1px solid #ece0c2; border-radius: 6px; padding: 7px 10px; margin: 5px 0; }
+    dt { font-size: 9px; text-transform: uppercase; letter-spacing: .06em; color: #818aa0; font-weight: 800; padding-top: 2px; }
+    .row.admin dt { color: #16233f; }
     dd { margin: 0; white-space: pre-wrap; }
-    .foot { margin-top: 12px; font-size: 9px; color: #8898a0; text-align: center; }
+    .foot { padding: 8px 16mm 10mm; font-size: 9px; color: #9aa3b5; text-align: center; }
   </style></head><body>
-    <div class="head"><div><div class="title">Student Medications</div><div class="sub">New York · ${(records || []).length} record${(records || []).length === 1 ? '' : 's'}</div></div><div class="date">As of ${esc(date)}</div></div>
-    ${(records || []).length ? cards : '<p>No records.</p>'}
+    <div class="banner">
+      <div>
+        <div class="title">Student Medications</div>
+        <div class="sub">New York${list.length ? ` &middot; ${list.length} record${list.length === 1 ? '' : 's'}` : ''}</div>
+      </div>
+      <div class="date">As of ${esc(date)}</div>
+    </div>
+    <div class="wrap">
+      <p class="legend"><b>Who can administer</b> — <b>CC</b> = Campus Coordinator &middot; <b>LG</b> = Lead Guide &middot; <b>Authorized adult</b> = an adult cleared for the student.</p>
+      ${list.length ? cards : '<p>No records.</p>'}
+    </div>
     <div class="foot">Confidential — student medical information. For campus staff use only.</div>
   </body></html>`;
   const w = window.open('', '_blank');
