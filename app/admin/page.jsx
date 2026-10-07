@@ -6,9 +6,12 @@ import AdminApp from './AdminApp';
 
 export const dynamic = 'force-dynamic';
 
-export default async function AdminPage() {
+export default async function AdminPage({ searchParams }) {
   const editor = await getCurrentEditor();
   if (!editor) redirect('/admin/signin');
+
+  const sp = await searchParams;
+  const initialTab = typeof sp?.tab === 'string' ? sp.tab : undefined;
 
   async function doSignOut() {
     'use server';
@@ -22,5 +25,5 @@ export default async function AdminPage() {
     }
   }
 
-  return <AdminApp editorEmail={editor.email} dev={!!editor.dev} signOutAction={doSignOut} />;
+  return <AdminApp editorEmail={editor.email} dev={!!editor.dev} signOutAction={doSignOut} initialTab={initialTab} />;
 }
