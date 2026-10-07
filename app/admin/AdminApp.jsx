@@ -26,9 +26,55 @@ function placeholdersInSections(sections) {
   return keys;
 }
 
-export default function AdminApp({ editorEmail, dev, signOutAction, only }) {
+// The campus resources, in sidebar order. `super` items show only for superadmins.
+const RESOURCE_NAV = [
+  { key: 'locations',   label: 'Locations',       sub: 'Per-campus handbook' },
+  { key: 'sections',    label: 'Shared handbook',  sub: 'Master copy', super: true },
+  { key: 'signatures',  label: 'Signed forms',     sub: 'Submissions' },
+  { key: 'medications', label: 'Medication Mgmt',  sub: 'Med administration' },
+  { key: 'editors',     label: 'Editors',          sub: 'Access & roles', super: true },
+];
+const VALID_TABS = RESOURCE_NAV.map((i) => i.key);
+
+// Left sidebar to toggle between campus resources. In linkMode (the dedicated
+// /admin/medications view, which has no in-page tab state) the other resources
+// are links into /admin?tab=…; otherwise they switch the active tab in place.
+function ResourceNav({ activeKey, superUser = false, onSelect, linkMode = false }) {
+  const items = RESOURCE_NAV.filter((it) => (linkMode ? !it.super : !it.super || superUser));
+  return (
+    <nav className="res-rail" aria-label="Campus resources">
+      <div className="res-rail-label">Campus resources</div>
+      {items.map((it) => {
+        const active = it.key === activeKey;
+        const cls = `res-item${active ? ' active' : ''}`;
+        if (linkMode && !active) {
+          return (
+            <a key={it.key} className={cls} href={`/admin?tab=${it.key}`}>
+              <span className="ri-label">{it.label}</span>
+              <span className="ri-sub">{it.sub}</span>
+            </a>
+          );
+        }
+        return (
+          <button
+            key={it.key}
+            type="button"
+            className={cls}
+            aria-current={active ? 'page' : undefined}
+            onClick={() => onSelect && onSelect(it.key)}
+          >
+            <span className="ri-label">{it.label}</span>
+            <span className="ri-sub">{it.sub}</span>
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
+
+export default function AdminApp({ editorEmail, dev, signOutAction, only, initialTab }) {
   const [data, setData] = useState(null);
-  const [tab, setTab] = useState('locations');
+  const [tab, setTab] = useState(VALID_TABS.includes(initialTab) ? initialTab : 'locations');
   const [toast, setToast] = useState(null);
   const [error, setError] = useState(null);
 
@@ -69,7 +115,12 @@ export default function AdminApp({ editorEmail, dev, signOutAction, only }) {
           )}
         </div>
         <div className="admin-wrap">
-          <MedicationsTab flash={flash} />
+          <div className="admin-shell">
+            <ResourceNav activeKey="medications" linkMode />
+            <div className="admin-main">
+              <MedicationsTab flash={flash} />
+            </div>
+          </div>
         </div>
         {toast && <div className="toast">{toast}</div>}
       </>
@@ -118,32 +169,30 @@ export default function AdminApp({ editorEmail, dev, signOutAction, only }) {
       </div>
 
       <div className="admin-wrap">
-        <div className="tabs">
-          <button className={`tab ${activeTab === 'locations' ? 'active' : ''}`} onClick={() => setTab('locations')}>Locations</button>
-          {superUser && <button className={`tab ${activeTab === 'sections' ? 'active' : ''}`} onClick={() => setTab('sections')}>Shared handbook</button>}
-          <button className={`tab ${activeTab === 'signatures' ? 'active' : ''}`} onClick={() => setTab('signatures')}>Signed forms</button>
-          <button className={`tab ${activeTab === 'medications' ? 'active' : ''}`} onClick={() => setTab('medications')}>Medication Mgmt</button>
-          {superUser && <button className={`tab ${activeTab === 'editors' ? 'active' : ''}`} onClick={() => setTab('editors')}>Editors</button>}
-        </div>
-        {superUser && activeTab === 'locations' && (
-          <p className="hint" style={{ marginBottom: 16 }}>
-            <strong>Locations</strong> is where you edit one campus at a time — pick a campus, fill in its details,
-            and customize or hide sections for it. The <strong>Shared handbook</strong> tab is the master copy every
-            campus inherits.
-          </p>
-        )}
-        {!superUser && (
-          <p className="hint" style={{ marginBottom: 16 }}>
-            You&apos;re a campus editor. Choose which sections appear for your campus and edit their wording —
-            changes stay on your campus only.
-          </p>
-        )}
+        <div className="admin-shell">
+          <ResourceNav activeKey={activeTab} superUser={superUser} onSelect={setTab} />
+          <div className="admin-main">
+            {superUser && activeTab === 'locations' && (
+              <p className="hint" style={{ marginBottom: 16 }}>
+                <strong>Locations</strong> is where you edit one campus at a time — pick a campus, fill in its details,
+                and customize or hide sections for it. The <strong>Shared handbook</strong> tab is the master copy every
+                campus inherits.
+              </p>
+            )}
+            {!superUser && (
+              <p className="hint" style={{ marginBottom: 16 }}>
+                You&apos;re a campus editor. Choose which sections appear for your campus and edit their wording —
+                changes stay on your campus only.
+              </p>
+            )}
 
-        {activeTab === 'locations' && <LocationsTab data={data} reload={reload} flash={flash} superUser={superUser} />}
-        {activeTab === 'sections' && superUser && <SectionsTab data={data} reload={reload} flash={flash} />}
-        {activeTab === 'signatures' && <SignaturesTab />}
-        {activeTab === 'medications' && <MedicationsTab flash={flash} />}
-        {activeTab === 'editors' && superUser && <EditorsTab data={data} reload={reload} flash={flash} editorEmail={editorEmail} />}
+            {activeTab === 'locations' && <LocationsTab data={data} reload={reload} flash={flash} superUser={superUser} />}
+            {activeTab === 'sections' && superUser && <SectionsTab data={data} reload={reload} flash={flash} />}
+            {activeTab === 'signatures' && <SignaturesTab />}
+            {activeTab === 'medications' && <MedicationsTab flash={flash} />}
+            {activeTab === 'editors' && superUser && <EditorsTab data={data} reload={reload} flash={flash} editorEmail={editorEmail} />}
+          </div>
+        </div>
       </div>
 
       {toast && <div className="toast">{toast}</div>}
